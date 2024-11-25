@@ -2,9 +2,14 @@
  * typedsoundness.v                                                               *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Import PredomAll.
 Require Import typeddensem.
@@ -55,8 +60,8 @@ simpl. rewrite <- IHEv2. clear IHEv2.
 rewrite <- (proj2 (SemCommutesWithSub _) _ _ _).
 simpl. rewrite <- (KLEISLIR_unit (SemExp e2) (SemVal v1) _).
 rewrite <- IHEv1. clear IHEv1.
-by rewrite <- (terminal_unique Id _).
-
+setoid_rewrite <- (terminal_unique Id _).
+auto.
 (* e_Iftrue *)
 simpl. rewrite IHEv. by apply: fmon_eq_intro.
 

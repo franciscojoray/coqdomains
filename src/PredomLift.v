@@ -2,13 +2,18 @@
  * PredomLift.v                                                                   *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 (*==========================================================================
   Lifting
   ==========================================================================*)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Import PredomCore.
 Set Implicit Arguments.
@@ -32,7 +37,7 @@ CoInductive Stream := Eps : Stream -> Stream | Val : D -> Stream.
 
 Lemma DL_inv : forall d, d = match d with Eps x => Eps x | Val d => Val d end.
 destruct d; auto.
-Save.
+Qed.
 Hint Resolve DL_inv.
 
 (** ** Removing Eps steps *)
@@ -48,19 +53,19 @@ Fixpoint pred_nth (d:Stream) (n:nat) {struct n} : Stream :=
 
 Lemma pred_nth_val : forall x n, pred_nth (Val x) n = Val x.
 destruct n; simpl; trivial.
-Save.
+Qed.
 Hint Resolve pred_nth_val.
 
 Lemma pred_nth_Sn_acc : forall n d, pred_nth d (S n) = pred_nth (pred d) n.
 destruct d; simpl; auto.
-Save.
+Qed.
 
 Lemma pred_nth_Sn : forall n d, pred_nth d (S n) = pred (pred_nth d n).
 induction n; intros; auto.
 destruct d.
 exact (IHn d).
 rewrite pred_nth_val; rewrite pred_nth_val; simpl; trivial.
-Save.
+Qed.
 
 Lemma pred_nth_sum : forall x m n, pred_nth x (m+n) = pred_nth (pred_nth x m) n.
 induction m.
@@ -87,6 +92,15 @@ CoInductive DLle : Stream D -> Stream D -> Prop :=
  |  DLleVal : forall d d' n y, pred_nth y n = Val d' -> d <= d' -> DLle (Val d) y.
 (*=End *)
 
+
+(** ** Order *)
+(*=DLle' *)
+CoInductive DLle' : Stream D -> Stream D -> Prop :=
+ |  DLleEps' : forall x y,  DLle' x y -> DLle' (Eps x) (Eps y)
+ |  DLleVal' : forall d d' n y, pred_nth y n = Val d' -> d <= d' -> DLle' (Val d) y.
+(*=End *)
+
+
 Hint Constructors DLle.
 
 (*=DLle_rec *)
@@ -96,7 +110,7 @@ Lemma DLle_rec : forall R : Stream D -> Stream D -> Prop,
    (forall d y, R (Val d) y -> exists n, exists d', pred_nth y n = Val d' /\ d <= d')
    -> forall x y, R x y -> DLle x y.
 (*=End *)
-move => R REps REpsVal RVal; cofix; case => x.
+move => R REps REpsVal RVal. cofix DLle_rec; case => x.
 - case => y H.
   + apply DLleEps. apply DLle_rec. by apply REps.
   + by apply DLleEpsVal; apply DLle_rec; auto.
@@ -113,7 +127,7 @@ intros x y C n. specialize (C (S n)). simpl in C. auto.
 intros x d C n. specialize (C (S n)). simpl in C. rewrite C. case n ; auto.
 intros d y C. exists 0. exists d. simpl. specialize (C 0). simpl in C. auto.
 intros n ; auto.
-Save.
+Qed.
 Hint Resolve DLle_refl.
 
 Lemma DLvalval : forall d x, DLle (Val d) x -> 
@@ -125,23 +139,20 @@ intuition.
 Qed.
 
 Lemma pred_nth_epsS n (x y:Stream D): Eps y = pred_nth x n -> y = pred_nth x (S n).
-elim:n x y. move => x y E. simpl in E. rewrite <- E. simpl. auto.
-move => n IH x. case x ; clear x. intros x y. intros E. simpl in E. specialize (IH _ _ E). auto.
+intros n. induction n. intros x y E. simpl in E. rewrite <- E. simpl. auto.
+intros x. case x ; clear x. intros x y. intros E. simpl in E. specialize (IHn _ _ E). auto.
 intros x y. simpl. intros incon. inversion incon.
 Qed.
 
 Lemma pred_nth_valS n d (y:Stream D): Val d = pred_nth y n -> Val d = pred_nth y (S n).
-elim: n d y.
-- move => d y E. simpl in E. by rewrite <- E.
-- move => n IH d. case => y E.
-  + simpl in E. by rewrite (IH _ _ E).
-  + apply E.
+intros n ; induction n. intros d y E. simpl in E. rewrite <- E. auto.
+intros d y. case y ; clear y. intros y E. simpl in E. specialize (IHn _ _ E). rewrite IHn. auto.
+intros dd E. simpl in E. inversion E. rewrite <- H0 in *. clear dd H0 E. simpl. auto.
 Qed.
 
 Lemma pred_nth_comp (y:Stream D) : forall m0 n1 m1 : nat,
    m0 == (n1 + m1)%N -> pred_nth y m0 = pred_nth (pred_nth y n1) m1.
-move => m0.
-elim: m0 y.
+move => y m0. elim: m0 y.
 - move => y n1 m1 E. have X:=addn_eq0 n1 m1. rewrite <- (eqP E) in X. rewrite eq_refl in X.
   have Y:=proj1 (andP (sym_eq X)). rewrite (eqP Y). simpl. by rewrite (eqP (proj2 (andP (sym_eq X)))).
 - move => m0 IH y n1. case.
@@ -159,7 +170,7 @@ elim: m0 y.
 Qed.
 
 Lemma DLle_pred_nth x y n : DLle x y -> DLle (pred_nth x n) (pred_nth y n).
-elim: n x y ; first by [].
+move => x y n. elim: n x y ; first by [].
 move => n IH x y C. case: x y / C.
 - move => x y C. simpl. apply IH. by apply C.
 - move => x d C. simpl. specialize (IH _ _ C). rewrite pred_nth_val in IH. by apply IH.
@@ -200,7 +211,7 @@ Lemma DLle_pred_left : forall x y, DLle x y -> DLle (pred x) y.
 destruct x; destruct y; simpl; intros; trivial.
 inversion H; auto.
 inversion H; trivial.
-Save.
+Qed.
 
 Lemma DLle_pred_right : forall x y, DLle x y -> DLle x (pred y).
 destruct x; destruct y; simpl; intros; trivial.
@@ -209,13 +220,13 @@ inversion H; trivial.
 destruct n; simpl in H1.
 discriminate H1.
 apply DLleVal with d' n; auto.
-Save.
+Qed.
 
 Hint Resolve DLle_pred_left DLle_pred_right.
 
 Lemma DLle_pred : forall x y, DLle x y -> DLle (pred x) (pred y).
 auto.
-Save.
+Qed.
 
 Hint Resolve DLle_pred.
 
@@ -223,14 +234,14 @@ Lemma DLle_pred_nth_left : forall n x y, DLle x y -> DLle (pred_nth x n) y.
 induction n; intros.
 simpl; auto.
 rewrite pred_nth_Sn; auto.
-Save.
+Qed.
 
 Lemma DLle_pred_nth_right : forall n x y,
       DLle x y -> DLle x (pred_nth y n).
 induction n; intros.
 simpl; auto.
 rewrite pred_nth_Sn; auto.
-Save.
+Qed.
 
 Hint Resolve DLle_pred_nth_left DLle_pred_nth_right.
 
@@ -239,7 +250,7 @@ Hint Resolve DLle_pred_nth_left DLle_pred_nth_right.
 Lemma DLleVal_leq : forall x y, DLle (Val x) (Val y) -> x <= y.
 intros x y H; inversion H.
 destruct n; simpl in H1; injection H1;intro; subst y; auto.
-Save.
+Qed.
 Hint Immediate DLleVal_leq.
 
 (* New *)
@@ -273,7 +284,7 @@ elim.
 Qed.
 
 Lemma DLleEpsn n x z xx : pred_nth x n = Val xx -> DLle (Val xx) z -> DLle x z.
-elim:n x z xx => x.
+elim => x.
 - move => z xx. simpl => E. by rewrite E.
 - move => IH. case.
   + move => d z xx. simpl. move => C DD.
@@ -307,7 +318,7 @@ Canonical Structure lift_ordMixin := OrdMixin LiftOrdAxiom.
 Canonical Structure lift_ordType := Eval hnf in OrdType lift_ordMixin.
 
 Lemma ordSetoidAxiom (X:ordType) : Setoid.axiom (@tset_eq X).
-split ; first by [].
+move => X. split ; first by [].
 split ; last by apply: tset_sym.
 by apply: tset_trans.
 Qed.
@@ -328,7 +339,7 @@ Canonical Structure lift_setoidType := Eval hnf in SetoidType lift_setoidMixin.
 
 Lemma eq_Eps : forall x, x =-= Eps x.
 intros; apply: Ole_antisym; repeat red; auto.
-Save.
+Qed.
 Hint Resolve eq_Eps.
 
 (** *** Bottom is given by an infinite chain of Eps *)
@@ -338,7 +349,7 @@ CoFixpoint DL_bot : lift_ordType := Eps DL_bot.
 Lemma DL_bot_eq : DL_bot = Eps DL_bot.
 transitivity match DL_bot with Eps x => Eps x | Val d => Val d end ; auto.
 destruct DL_bot ; auto.
-Save.
+Qed.
 
 Lemma DLless_cond : forall x y, (forall xx, x =-= Val xx -> x <= y) -> DLle x y.
 move => x y P. apply DLle_rec with (R:=fun x y => forall xx, x =-= Val xx -> x <= y).
@@ -368,20 +379,20 @@ Lemma DLle_Val_exists_pred :
       forall x d, Val d <= x -> exists k, exists d', pred_nth x k = Val d'
             /\ d <= d'.
 intros x d H; inversion H; eauto.
-Save.
+Qed.
 
 Lemma Val_exists_pred_le : 
       forall x d, (exists k, pred_nth x k = Val d) -> Val d <= x.
 destruct 1; intros.
 apply DLleVal with d x0; trivial.
-Save.
+Qed.
 Hint Immediate DLle_Val_exists_pred Val_exists_pred_le.
 
 Lemma Val_exists_pred_eq : 
       forall x d, (exists k, pred_nth x k = Val d) -> (Val d:lift_ordType) =-= x.
 move => x d X. split. simpl. case: X => k e. by apply: (DLleVal e).
 case: X => n X. rewrite <- X. by apply DLle_pred_nth_right.
-Save.
+Qed.
 
 (** *** Construction of least upper bounds *)
 
@@ -389,15 +400,15 @@ Definition isEps (x:Stream D) := match x with Eps _ => True | _ => False end.
 
 Lemma isEps_Eps : forall x, isEps (Eps x).
 repeat red; auto.
-Save.
+Qed.
 
 Lemma not_isEpsVal : forall d, ~ (isEps (Val d)).
 repeat red; auto.
-Save.
+Qed.
 Hint Resolve isEps_Eps not_isEpsVal.
 
 Lemma isEpsEps (x x': Stream D) : x = Eps x' -> isEps x.
-move => E. by rewrite E.
+move => x x' E. by rewrite E.
 Qed.
 
 Definition isEps_dec (x: Stream D) : {d:D|x=Val d}+{isEps x} :=
@@ -428,7 +439,7 @@ match x with exist x X => x end.
 Require Import ConstructiveEpsilon.
 
 Lemma hasValEps x x' : x = Eps x' -> hasVal x -> hasVal x'.
-move => e. rewrite e. clear e x.
+move => x x' e. rewrite e. clear e x.
 case => n. case => d e. case: n e ; first by []. move => n. simpl => e. exists n. exists d. by apply e.
 Qed.
 
@@ -439,11 +450,11 @@ match X with exist (k,d) X0 =>
 end.
 
 Lemma pred_nth_notEps x' : ~ (exists d : D, pred_nth (Eps x') 0 = Val d).
-by case.
+move => x. by case => d.
 Qed.
 
 Lemma pred_nthvalval d' n : (exists d : D, pred_nth (Val d') n = Val d).
-exists d'. by case: n.
+move => d' n. exists d'. by case: n.
 Qed.
 
 Fixpoint hasVal_dec x n : { (exists d : D, pred_nth x n = Val d) } + {~ (exists d : D, pred_nth x n = Val d)} :=
@@ -461,7 +472,7 @@ match x as x0, n as n0 return (exists d, pred_nth x0 n0 = Val d) -> D with
 end.
 
 Lemma getValVal n x (P:exists d, pred_nth x n = Val d) : pred_nth x n = Val (@getVal x n P).
-elim: n x P.
+elim.
 - by case ; first by move => x [d F].
 - move => n IH. by case; first by apply IH.
 Qed.
@@ -478,7 +489,7 @@ Definition extract (x:valuable) : D :=
 match (findindexandval x) with exist (n,d) _ => d end.
 
 Lemma extractworks x : projj x =-= Val (extract x).
-unfold extract. case (findindexandval x).
+move => x. unfold extract. case (findindexandval x).
 case => n d. move => X. apply Oeq_sym. apply Val_exists_pred_eq. exists n. by apply X.
 Qed.
 
@@ -501,7 +512,7 @@ Qed.
 (* This is the simpler one that just takes an equality *)
 
 Lemma pred_nth_eq k x : pred_nth x k =-= x.
-elim: k x; first by [].
+elim ; first by [].
 move => n IH. case ; last by [].
 simpl. move => x. rewrite -> (IH x). split ; first by apply DLleEps_right. by apply DLleEps_left.
 Qed.
@@ -516,7 +527,7 @@ rewrite <- H1. by rewrite -> pred_nth_eq.
 Qed.
 
 Lemma hasValShift (c:natO -=> lift_ordType) k d (Hck:c k =-= Val d) n : hasVal (c (n + k)%N).
-rewrite addnC. case: (allvalsfromhere n Hck) => d' [A L].
+move => c k d X n. rewrite addnC. case: (allvalsfromhere n X) => d' [A L].
 case: (eqValpred A) => i [dd [XX _]]. exists i. by exists dd.
 Qed.
 
@@ -524,14 +535,14 @@ Definition makechain (c:natO -=> lift_ordType) k d (Hck:c k =-= Val d) : nat -> 
 fun n => @extract (exist hasVal (c (n+k)%N) (hasValShift Hck n)).
 
 Lemma makechan_mono (c:natO -=> lift_ordType) k d (Hck:c k =-= Val d) : monotonic (makechain Hck).
-move => n n' L. apply extractmono. simpl. apply fmonotonic. by apply: (leq_add L).
+move => c k d Hck n n' L. apply extractmono. simpl. apply fmonotonic. by apply: (leq_add L).
 Qed.
 
 Definition makechainm (c:natO -=> lift_ordType) k d (Hck:c k =-= Val d) : natO =-> D :=
   Eval hnf in mk_fmono (makechan_mono Hck).
 
 Lemma pred_mono (c:natO =-> lift_ordType) : monotonic (fun n => pred (c n)).
-move => x y H. apply: DLle_pred. by apply (fmonotonic c).
+move => c x y H. apply DLle_pred. by apply (fmonotonic c).
 Qed.
 
 Definition cpred (c:natO =-> lift_ordType) : natO =-> lift_ordType := Eval hnf in mk_fmono (pred_mono c).
@@ -555,9 +566,9 @@ match X with | exist (d,k) (conj Hk Hck) => @makechainm c k d Hck
 end.
 
 Lemma makechainworks : forall (c:natO =-> lift_ordType) k dk (H2:c k =-= Val dk) i (d:D), c (k+i)%N =-= (Val d) -> makechain H2 i =-= d.
-move => c k dk Hck i d e.
+intros.
 apply vinj.
-rewrite <- e.
+rewrite <- H.
 apply Oeq_sym.
 unfold makechain.
 rewrite <- extractworks.
@@ -565,7 +576,10 @@ simpl. by rewrite addnC.
 Qed.
 
 Lemma eqDLeq : forall d d', d =-= d' -> Val d =-= (Val d').
-move => d d'. by case ; split ; apply DLle_leVal.
+  intros.
+  destruct H; split; apply DLle_leVal.
+  assumption.
+  assumption.
 Qed.
 
 Lemma predeq : forall x, x =-= pred x.
@@ -621,7 +635,7 @@ Definition eta_m : D =-> lift_ordType := Eval hnf in mk_fmono eta_mono.
 
 End Lift_ord.
 
-Implicit Arguments eta_m [D].
+Arguments eta_m [D].
 
 Section Lift_cpo.
 
@@ -817,7 +831,6 @@ assert (lub c =-= Val f') as lubval'.
 apply: Ole_antisym.
 eapply Ole_trans. apply lubval1. by apply: DLle_leVal.
 simpl.
-(* apply: DLleVal works here in 8.4pl2 but not in pl5, so changed to eapply *)
 eapply (DLleVal). apply lubval. apply Ole_refl.
 assert (f' <= d).
 destruct lubval' as [v1 v2].
@@ -855,20 +868,20 @@ Definition eta : D =-> lift_cpoType := Eval hnf in mk_fcont eta_cont.
 
 End Lift_cpo.
 
-Implicit Arguments eta [D].
+Arguments eta [D].
 
 (** printing _BOT %\LIFTED% *)
 Notation "x '_BOT'" := (lift_cpoType x) (at level 28).
 
 Lemma liftOrdPointed (D:ordType) : Pointed.axiom (DL_bot D).
-move => x. by apply DL_bot_least.
+move => D x. by apply DL_bot_least.
 Qed.
 
 Canonical Structure liftOrdPointedMixin D := PointedMixin (@liftOrdPointed D).
 Canonical Structure liftOrdPointedType D := Eval hnf in PointedType (liftOrdPointedMixin D).
 
 Lemma liftCpoPointed (D:cpoType) : Pointed.axiom (DL_bot D).
-move => x. by apply DL_bot_least.
+move => D x. by apply DL_bot_least.
 Qed.
 
 Canonical Structure liftCppoMixin D := PointedMixin (@liftCpoPointed D).
@@ -876,18 +889,18 @@ Canonical Structure liftCppoType D := Eval hnf in CppoType (liftCppoMixin D).
 Canonical Structure liftCpoPointedType (D:cpoType) := Eval hnf in @PointedType (D _BOT) (liftCppoMixin D).
 
 Lemma liftFunPointed C (D:pointedType) : Pointed.axiom (@fmon_cte C D PBot).
-move => f x. simpl. by apply leastP.
+move => C D f x. simpl. by apply leastP.
 Qed.
 
 Canonical Structure funOrdPointedMixin C D := PointedMixin (@liftFunPointed C D).
 Canonical Structure funOrdPointedType C D := Eval hnf in PointedType (funOrdPointedMixin C D).
 
 Lemma PBot_app D (E:cppoType) : forall d, (PBot:D -=> E) d =-= PBot.
-move => d. by simpl.
+move => D E d. by simpl.
 Qed.
 
 Lemma PBot_incon  (D:cpoType) (x:D) : eta x <= PBot -> False.
-move => incon.
+move => D x incon.
 inversion incon. subst. clear x H1 incon.
 elim: n H0.
 - simpl. unfold Pointed.least. simpl. by rewrite -> DL_bot_eq.
@@ -895,6 +908,6 @@ elim: n H0.
 Qed.
 
 Lemma PBot_incon_eq (D:cpoType) (x:D) : eta x =-= PBot -> False.
-intros [incon _].
+intros D x [incon _].
 apply (PBot_incon incon).
 Qed.

@@ -2,11 +2,16 @@
  * KnasterTarski.v                                                                *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 (* Complete Lattices *)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Export PredomCore.
 
@@ -44,15 +49,11 @@ Record mixin_of : Type := Mixin
 
 End Mixin.
 
-Section ClassDef.
 Record class_of (T:Type) : Type :=
-  Class { base : PreOrd.class_of T ; 
-          ext : mixin_of (PreOrd.Pack base T) }.
-Local Coercion base : class_of >-> PreOrd.class_of.
-Local Coercion ext : class_of >-> mixin_of.
+  Class { base :> PreOrd.class_of T ; 
+          ext :> mixin_of (PreOrd.Pack base T) }.
 
-Structure type : Type := Pack { sort : Type; _ : class_of sort ; _ : Type}.
-Local Coercion sort : type >-> Sortclass.
+Structure type : Type := Pack { sort :> Type; _ : class_of sort ; _ : Type}.
 
 Definition class cT := let: Pack _ c _ := cT return class_of cT in c.
 Definition unpack K (k : forall T (c : class_of T), K T c) cT :=
@@ -61,40 +62,33 @@ Definition repack cT : _ -> Type -> type := let k T c p := p c in unpack k cT.
 
 Definition pack := let k T c m := Pack (@Class T c m) T in PreOrd.unpack k.
 
-Definition ordType cT := PreOrd.Pack (class cT) cT.
-Definition setoidType cT := Setoid.Pack (class cT) cT.
-End ClassDef.
-Module Import Exports.
-Coercion base : class_of >-> PreOrd.class_of.
-Coercion ext : class_of >-> mixin_of.
-Coercion sort : type >-> Sortclass.
-Coercion ordType : type >-> PreOrd.type.
-Coercion setoidType : type >-> Setoid.type.
-Notation clatType := type.
-Notation ClatMixin := Mixin.
-Notation ClatType := pack.
+Coercion ordType cT := PreOrd.Pack (class cT) cT.
+Coercion setoidType cT := Setoid.Pack (class cT) cT.
 
-Canonical Structure ordType.
-Canonical Structure setoidType.
-End Exports.
 End CLattice.
-Export CLattice.Exports.
+
+Notation clatType := CLattice.type.
+Notation ClatMixin := CLattice.Mixin.
+Notation ClatType := CLattice.pack.
+
+Canonical Structure CLattice.ordType.
+Canonical Structure CLattice.setoidType.
 
 Definition inf (cT:clatType) : (cT -> Prop) -> cT := CLattice.inf (CLattice.class cT).
-Implicit Arguments inf [cT].
+Arguments inf [cT].
 
 Lemma Pinf (T:clatType) : forall P : T -> Prop, forall t, P t -> inf P <= t.
-unfold inf. case:T => A. case => O. simpl. case. simpl.
+unfold inf. case. move => A. case. move => O. simpl. case. simpl.
 move => I X a P t x. by apply (proj1 (X P t) x).
 Qed.
 
 Lemma PinfL (T:clatType) : forall P : T -> Prop, forall t, (forall x, P x -> t <= x) -> t <= inf P.
-unfold inf. case:T => A. case => O. simpl. case. simpl.
+unfold inf. case. move => A. case. move => O. simpl. case. simpl.
 move => I X T P t x. by apply (proj2 (X P t) x).
 Qed.
 
 Lemma inf_ext (T:clatType) (P P' : T -> Prop) : (forall x, P x <-> P' x)  -> inf P =-= inf P'.
-move => C. split.
+move => T P P' C. split.
 - apply: PinfL. move => x Px'. apply Pinf. by apply (proj2 (C x) Px').
 - apply: PinfL. move => x Px'. apply Pinf. by apply (proj1 (C x) Px').
 Qed.
@@ -121,39 +115,31 @@ Variable O1 O2 : clatType.
 
 Record mixin_of (f:fmono O1 O2) := Mixin { cont :> limitpres f }.
 
-Record class_of (f : O1 -> O2) := Class { base : FMon.mixin_of f; ext : mixin_of (FMon.Pack base f) }.
-Local Coercion base : class_of >-> FMon.mixin_of.
-Local Coercion ext : class_of >-> mixin_of.
+Record class_of (f : O1 -> O2) := Class { base :> FMon.mixin_of f; ext :> mixin_of (FMon.Pack base f) }.
 
-Structure type : Type := Pack {sort : O1 -> O2; _ : class_of sort; _ : O1 -> O2}.
-Local Coercion sort : type >-> Funclass.
+Structure type : Type := Pack {sort :> O1 -> O2; _ : class_of sort; _ : O1 -> O2}.
 Definition class cT := let: Pack _ c _ := cT return class_of cT in c.
 Definition unpack K (k : forall T (c : class_of T), K T c) cT :=
   let: Pack T c _ := cT return K _ (class cT) in k _ c.
 Definition repack cT : _ -> Type -> type := let k T c p := p c in unpack k cT.
 Definition pack := let k T c m := Pack (@Class T c m) T in FMon.unpack k.
-
-Definition fmono f : fmono O1 O2 := FMon.Pack (class f) f.
 End flimit.
-Module Import Exports.
-Coercion base : class_of >-> FMon.mixin_of.
-Coercion ext : class_of >-> mixin_of.
-Coercion sort : type >-> Funclass.
-Coercion fmono : type >-> FMon.type.
-Notation flimit := type.
-Notation flimitMixin := Mixin.
-Notation flimitType := pack.
-Canonical Structure fmono.
-End Exports.
+
+Coercion fmono (O1 O2:clatType) f : fmono O1 O2 := FMon.Pack (class f) f.
+
 End FLimit.
-Export FLimit.Exports.
+
+Notation flimit := FLimit.type.
+Notation flimitMixin := FLimit.Mixin.
+Notation flimitType := FLimit.pack.
+Canonical Structure FLimit.fmono.
 
 Lemma flimitpres (T0 T1:clatType) (f:flimit T0 T1) : limitpres f.
-case:f => f. case ; case => m. case => l s. by apply l.
+move => T0 T1. case => f. case ; case => m. case => l s. by apply l.
 Qed.
 
 Lemma flimitp_ord_axiom (D1 D2 :clatType) : PreOrd.axiom (fun (f g:flimit D1 D2) => (f:fmono D1 D2) <= g).
-move => f ; split ; first by [].
+move => D1 D2 f ; split ; first by [].
 move => g h ; by apply Ole_trans.
 Qed.
 
@@ -161,7 +147,7 @@ Canonical Structure flimitp_ordMixin (D1 D2 :clatType) := OrdMixin (@flimitp_ord
 Canonical Structure flimitp_ordType (D1 D2 :clatType) := Eval hnf in OrdType (flimitp_ordMixin D1 D2).
 
 Lemma clatMorphSetoidAxiom (O0 O1:clatType) : @Setoid.axiom (flimit O0 O1) (fun x y => (x:fmono O0 O1) =-= y).
-split ; first by move => x ; apply: tset_refl. split.
+move => O1 O2. split ; first by move => x ; apply: tset_refl. split.
 - by apply: Oeq_trans.
 - by apply: Oeq_sym.
 Qed.
@@ -173,7 +159,7 @@ Canonical Structure clatMorphSetoidType (T0 T1 : clatType) := Eval hnf in Setoid
 Definition flimit_less (A B: clatType): relation (flimit A B) := (@Ole _).
 
 Definition flimit_less_preorder (A B: clatType): PreOrder (@flimit_less A B).
-split ;first by move => x.
+move => A B. split ;first by move => x.
 move => x y z. by apply Ole_trans.
 Defined.
 
@@ -190,7 +176,7 @@ Qed.
 Definition flimit_equal (A B: clatType): relation (flimit A B) := (@tset_eq _).
 
 Definition flimit_equal_equivalence (A B: clatType): Equivalence (@flimit_equal A B).
-split.
+intros A B. split.
 - move => x. by apply: Oeq_refl.
 - move => x y. by apply: Oeq_sym.
 - move => x y z. by apply: Oeq_trans.
@@ -207,7 +193,7 @@ Qed.
 
 Lemma fcomplp (D0 D1 D2 : clatType) (f : flimit D1 D2) (g: flimit D0 D1) :
    limitpres (ocomp f g).
-move => S. simpl.
+move => T0 T1 T2 f g S. simpl.
 have gg:=flimitpres g S. rewrite -> gg.
 have ff:=flimitpres f (imageSet g S). rewrite -> ff. clear gg ff.
 apply: inf_ext. move => x. unfold imageSet. split.
@@ -222,7 +208,7 @@ Definition mk_flimit (D0 D1:clatType) (f:fmono D0 D1) (c:limitpres (FMon.Pack (F
 Definition complp (D0 D1 D2 : clatType) (f : flimit D1 D2) (g: flimit D0 D1) := Eval hnf in mk_flimit (fcomplp f g).
 
 Lemma oidlp (T:clatType) : limitpres (@oid T).
-move => S. simpl. apply: inf_ext.
+move => T S. simpl. apply: inf_ext.
 move => x. split.
 - move => iS. exists x. by split. unfold imageSet. 
 - case => y [iS P].  simpl in P. rewrite <- P. by apply iS.
@@ -281,7 +267,7 @@ Variable P : L -> Prop.
 Variable PSinf: forall (S:L -> Prop), (forall t, S t -> P t) -> P (inf S).
 
 Definition Embed (t:L) (p:P t) : sub_ordType P.
-by exists t.
+intros t Pt. exists t. apply Pt.
 Defined.
 
 Definition Extend (S : sub_ordType P -> Prop) : L -> Prop := (fun l => (exists p:P l, S (Embed p))).
@@ -309,7 +295,7 @@ End SubLattice.
 Variable L : clatType.
 
 Lemma op_ordAxiom (O:ordType) : PreOrd.axiom (fun (x y:O) => y <= x).
-move => x.
+move => O x.
 split ; first by apply Ole_refl.
 move => y z ; by apply (fun X Y => Ole_trans Y X).
 Qed.
@@ -486,7 +472,7 @@ Canonical Structure prod_clatCatType := Eval hnf in prodCatType prod_clatCatMixi
 
 Lemma arrow_latAxiom (T:Type) (L:clatType) : @CLattice.axiom (ford_ordType T L)
    (fun (S:ford_ordType T L -> Prop) => fun t => @inf L (fun st => exists s, S s /\ s t = st)).
-intros  P f. split.
+intros T L P f. split.
 - move => Pf. simpl. intros t. refine (Pinf _ ). exists f. by split.
 - simpl. intros C t. refine (PinfL _).
   intros l Tl. destruct Tl as [f0 [Pf0 f0t]]. specialize (C _ Pf0). by rewrite <- f0t.
@@ -499,24 +485,25 @@ Require Export NSetoid.
 Open Scope C_scope.
 
 Lemma setOrdAxiom T : @PreOrd.axiom (T =-> Props) (fun A B => forall x, A x -> B x).
-move => c. split ; first by [].
+move => T c. split ; first by [].
 move => y z A B a Ca. apply B. by apply A.
 Qed.
 
 Canonical Structure set_ordMixin T := OrdMixin (@setOrdAxiom T).
 Definition set_ordType T := Eval hnf in OrdType (set_ordMixin T).
 
+(** updated for 8.4 : a syntax error *)
 Lemma intersect_respect T (S:(T =-> Props) -> Prop) : setoid_respect (fun t => forall A, S A -> A t).
-move => x y e. simpl.
+move => T S x y e. simpl.
 split => X A sa ; specialize (X A sa).
-- by apply (proj1 (frespect A e)).
-- by apply (proj2 (frespect A e)).
+- by rewrite <- (frespect A e).
+- by rewrite -> (frespect A e).
 Qed.
 
 Definition intersect T (S:(T =-> Props) -> Prop) : T =-> Props := Eval hnf in mk_fset (intersect_respect S).
 
 Lemma set_clatAxiom T : @CLattice.axiom (set_ordType T) (fun S => intersect S).
-move => P x. split.
+move => T P x. split.
 - move => iP a A. by apply (A x).
 - move => A a ix B Pb. by apply (A B Pb a ix).
 Qed.

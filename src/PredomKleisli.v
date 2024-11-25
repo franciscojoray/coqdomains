@@ -2,9 +2,14 @@
  * PredomKleisli.v                                                                *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Import PredomCore.
 Require Import PredomLift.
@@ -96,7 +101,7 @@ by apply: DLle_leVal.
 Qed.
 
 Lemma kleislit_mono D E (X:D =-> lift_ordType E) : monotonic (kleislit X).
-move => x y L. simpl. apply: DLless_cond => e C.
+move => D E X x y L. simpl. apply: DLless_cond => e C.
 case: (kleisli_ValVal C) => dd [P Q].
 rewrite (kleisli_Valeq X P).
 rewrite -> P in L.
@@ -112,17 +117,18 @@ auto.
 Qed.
 
 Lemma eta_injp D E (f g :D =-> E) : eta << f =-= eta << g -> f =-= g.
-move => C. apply: fmon_eq_intro.
-move=> d. assert (X:=fmon_eq_elim C d).
+intros D E f g. intros C. apply: fmon_eq_intro.
+intros d. assert (X:=fmon_eq_elim C d).
 apply: vinj. apply X.
 Qed.
 
 Lemma eta_leinjp D E (f g :D =-> E) : eta << f <= eta << g -> f <= g.
-move => C d.
-assert (X:= C d). apply vleinj. apply X.
+intros D E f g. intros C.
+intros d. assert (X:= C d). apply vleinj. apply X.
 Qed.
 
 Lemma kleisli_cont (D0 D1: cpoType) (f:D0 =-> D1 _BOT) : continuous (kleislim f).
+intros D0 D1 f.
 unfold continuous.
 intros h.
 simpl.
@@ -163,12 +169,12 @@ by unlock kleisli.
 Qed.
 
 Lemma kleisliVal D E d (f:D =-> E _BOT) : kleisli f (Val d) =-= f d.
-apply (@Oeq_trans _ _ (kleislit f (Val d))) ; first by unlock kleisli.
+intros D E d f. apply (@Oeq_trans _ _ (kleislit f (Val d))) ; first by unlock kleisli.
 by rewrite kleisli_Val.
 Qed.
 
 Lemma kleisli_mono (D0 D1 : cpoType) : monotonic (@kleisli D0 D1).
-unfold monotonic. move => f g fgL x.
+unfold monotonic. move => D0 D1 f g fgL x.
 simpl. apply: DLless_cond => e C.
 case: (kleisliValVal C) => d [P Q]. unlock kleisli. simpl.
 rewrite (kleisli_Valeq f P).
@@ -184,7 +190,7 @@ by [].
 Qed.
 
 Lemma Kleisli_cont (D0 D1: cpoType) : continuous (@Kleisli D0 D1).
-move => c d0. simpl.
+move => D0 D1 c d0. simpl.
 apply: DLless_cond.
 intros e C.
 destruct (@kleisliValVal D0 D1 d0 ((lub c)) e C) as [d [V hd]]. simpl. unlock kleisli. simpl.
@@ -209,7 +215,7 @@ as kleisli_eq_compat.
 move => f f' e. split ; [apply (kleisli_le_compat (proj1 e)) | apply (kleisli_le_compat (proj2 e))].
 Qed.
 
-Implicit Arguments KLEISLI [D0 D1].
+Arguments KLEISLI [D0 D1].
 
 Lemma KLEISLI_simpl (D0 D1: cpoType) (f:D0 =-> D1 _BOT) : KLEISLI f = kleisli f.
 auto.
@@ -218,14 +224,14 @@ Qed.
 Definition total D E (f:D -> lift_ordType E) := forall d, exists e, f d =-= eta_m e.
 
 Definition DLgetelem D (x :lift_ordType  D) (P:exists x', x =-= Val x') : D.
-assert (hasVal x). unfold hasVal. destruct P as [x' E].
+intros D x P. assert (hasVal x). unfold hasVal. destruct P as [x' E].
 destruct (eqValpred E) as [n [d [X Eq]]].
 exists n. exists d. apply X.
 apply (extract (exist (@hasVal D) x H)).
 Defined.
 
 Lemma total_mono D (E : ordType) (f:D =-> lift_ordType E) (Tot:total f) : monotonic (fun d => @DLgetelem E (f d) (Tot _)).
-move => x y L. apply: extractmono. simpl. assert (monotonic f) as m by auto.
+move => D E f Tot x y L. apply extractmono. simpl. assert (monotonic f) as m by auto.
 by apply m.
 Qed.
 
@@ -236,6 +242,7 @@ Definition totalLm D (E : ordType) (f:D =-> lift_ordType E) (Tot:total f) : D =-
   locked (totalLmX Tot).
 
 Lemma total_cont (D E : cpoType) (f:D =-> E _BOT) (Tot:total f) : continuous (totalLmX Tot).
+intros D E f Tot.
 unfold continuous. intros c. simpl. apply vleinj.
 unfold DLgetelem. rewrite <- extractworks. simpl projj.
 rewrite (fcontinuous f). rewrite -> (@lub_comp_eq _ _ eta (totalLmX Tot << c)).
@@ -249,15 +256,18 @@ Definition totalLX (D E :cpoType) (f:D =-> E _BOT) (Tot:total f) : D =-> E :=
 Definition totalL (D E :cpoType) (f:D =-> E _BOT) (Tot:total f) : D =-> E := locked (totalLX Tot).
 
 Lemma DLgetelem_eta D (x : lift_ordType D) (P:exists x', x =-= Val x') : Val (DLgetelem P) =-= x.
+intros D x P.
 unfold DLgetelem.
 rewrite <- extractworks. simpl. auto.
 Qed.
 
 Lemma totalLm_eta D (E :ordType) (f:D =-> lift_ordType E) (Tot:total f) : eta_m << totalLm Tot =-= f.
+intros D E f Tot.
 apply: fmon_eq_intro => n. simpl. unlock totalLm. simpl. by apply DLgetelem_eta.
 Qed.
 
 Lemma totalL_eta D (E :cpoType) (f:D =-> E _BOT) (Tot:total f) : eta << totalL Tot =-= f.
+intros D E f Tot.
 assert (x:= totalLm_eta Tot).
 apply: fmon_eq_intro.
 intros d.
@@ -266,32 +276,36 @@ rewrite <- xx. unlock totalL. by unlock totalLm.
 Qed.
 
 Lemma eta_m_total D (f : D =-> lift_ordType D) : f =-= eta_m -> total f.
-move => P.
+intros D f P.
 unfold total. intros d.
 exists d.
 apply (fmon_eq_elim P d).
 Qed.
 
 Lemma eta_total D (f : D =-> D _BOT) : f =-= eta -> total f.
-move => P.
+intros D f P.
 unfold total. intros d.
 exists d.
 apply (fmon_eq_elim P d).
 Qed.
 
 Lemma totalLm_etap D E (f : D =-> lift_ordType E) (Tot : total f) d : eta_m (totalLm Tot d) =-= f d.
+intros D E f Tot d.
 apply (fmon_eq_elim (totalLm_eta Tot) d).
 Qed.
 
 Lemma totalL_etap D E (f : D =-> E _BOT) (Tot : total f) d : eta (totalL Tot d) =-= f d.
+intros D E f Tot d.
 apply (fmon_eq_elim (totalL_eta Tot) d).
 Qed.
 
 Lemma valtotalm D (E :ordType) (f:D =-> lift_ordType E) (Tot:total f) x : Val (totalLm Tot x) =-= f x.
+intros D E f Tot x.
 assert (X := fmon_eq_elim (totalLm_eta Tot) x). by apply X.
 Qed.
 
 Lemma valtotal D (E :cpoType) (f:D =-> E _BOT) (Tot:total f) x : Val (totalL Tot x) =-= f x.
+intros D E f Tot x.
 assert (X := fmon_eq_elim (totalL_eta Tot) x). by apply X.
 Qed.
 
@@ -405,22 +419,23 @@ Definition mu D := @kleisli (D _BOT) D Id.
 
 Lemma mu_natural D E (f:D =-> E) :
    kleisli (eta << f) << mu _ =-= mu _ << kleisli (eta << (kleisli (eta << f))).
+intros D E f.
 unfold mu. rewrite <- kleisli_comp2. rewrite -> kleisli_comp.
 rewrite -> comp_idR. by rewrite comp_idL.
 Qed.
 
 Lemma mumu D : mu _ << kleisli (eta << mu _) =-= mu D << mu _.
-unfold mu.
+move => D. unfold mu.
 rewrite <- kleisli_comp2. rewrite kleisli_comp. rewrite comp_idL. by rewrite comp_idR.
 Qed.
 
 Lemma mukl D : mu D << kleisli (eta << eta) =-= Id.
-unfold mu.
+intros D. unfold mu.
 rewrite <- kleisli_comp2. rewrite comp_idL. by rewrite kleisli_unit.
 Qed.
 
 Definition SWAP (C:prodCat) (X Y : C) : (X * Y) =-> (Y * X) := <| pi2, pi1 |>.
-Implicit Arguments SWAP [C X Y].
+Arguments SWAP [C X Y].
 
 Definition Application := fun (D0 D1:cpoType) => exp_fun ((uncurry (@KLEISLI (D0 -=> D1 _BOT) D1)) <<
                                        <| exp_fun ((uncurry KLEISLI) << SWAP) << pi2, pi1 |>).
@@ -454,7 +469,7 @@ rewrite kleisliVal. simpl. rewrite kleisliVal. by simpl.
 Qed.
 
 Lemma strength_proj D E: kleisli (eta << pi2) << LStrength E D =-= pi2.
-apply: fmon_eq_intro. case => e d. unfold LStrength. unfold Smash. unlock Operator2.
+intros D E. apply: fmon_eq_intro. case => e d. unfold LStrength. unfold Smash. unlock Operator2.
 simpl.
 repeat (rewrite kleisliVal ; simpl). unfold id.
 apply Oeq_trans with (y:=(kleisli (eta << pi2) << kleisli (eta << PAIR D e)) d) ; first by [].
@@ -466,13 +481,13 @@ Qed.
 Hint Resolve tset_refl.
 
 Lemma const_post_comp (X Y Z : cpoType) (f:Y =-> Z) e : f << const X e =-= const X (f e).
-by apply: fmon_eq_intro.
+move => X Y Z f e. by apply: fmon_eq_intro.
 Qed.
 
 Lemma strength_assoc D E F :
   LStrength _ _ << <| pi1 , LStrength _ _ << pi2 |> << prod_assoc D E (F _BOT) =-=
   kleisli (eta << prod_assoc _ _ _) << LStrength _ _.
-unfold LStrength. unfold Smash. do 3 rewrite  <- comp_assoc.
+intros D E F. unfold LStrength. unfold Smash. do 3 rewrite  <- comp_assoc.
 rewrite (comp_assoc (prod_assoc _ _ _)). rewrite prod_map_prod_fun. do 2 rewrite comp_idL.
 refine (fmon_eq_intro _). case => p df. case: p => d e. simpl. unlock Operator2. simpl.
 repeat rewrite kleisli_Val. unfold id. rewrite (kleisliVal d). simpl.
@@ -486,7 +501,7 @@ do 2 rewrite <- comp_assoc. refine (comp_eq_compat (tset_refl eta) _). by apply:
 Qed.
 
 Lemma strength_eta D E : LStrength D E << <| pi1, eta << pi2 |> =-= eta.
-apply: fmon_eq_intro. case => d e. unfold LStrength. unfold Smash. simpl.
+move => D E. apply: fmon_eq_intro. case => d e. unfold LStrength. unfold Smash. simpl.
 by rewrite Operator2_simpl.
 Qed.
 
@@ -497,7 +512,7 @@ Lemma KLEISLIL_eq (A A' B B' C:cpoType) : forall (f:A * B =-> C _BOT) (f': A' * 
     (forall aa', a' =-= Val aa' -> exists aa, a =-= Val aa) ->
   @KLEISLIL A B C f (a,b) =-= @KLEISLIL A' B' C f' (a',b').
 Proof.
-intros f f' a b a' b' V1 V2 V3. unlock KLEISLIL. simpl. unfold Smash, id.
+intros A A' B B' C f f' a b a' b' V1 V2 V3. unlock KLEISLIL. simpl. unfold Smash, id.
 refine (kleisli_eq _ _).
 intros aa sa.
 destruct (Operator2Val sa) as [a1 [b1 [Pa1 [Pb1 pv]]]].
@@ -522,7 +537,7 @@ Lemma KLEISLIR_eq (A A' B B' C:cpoType) : forall (f:A * B =-> C _BOT) (f': A' * 
     (forall aa', b' =-= Val aa' -> exists aa, b =-= Val aa) ->
   @KLEISLIR A B C f (a,b) =-= @KLEISLIR A' B' C f' (a',b').
 Proof.
-intros f f' a b a' b' V1 V2 V3. unlock KLEISLIR.
+intros A A' B B' C f f' a b a' b' V1 V2 V3. unlock KLEISLIR.
 unfold LStrength. unfold Smash. simpl. unfold id.
 refine (kleisli_eq _ _).
 intros aa sa.
@@ -557,6 +572,7 @@ Qed.
 
 Lemma KLEISLIL_comp D E F G (f:D * E =-> F _BOT) (g:G =-> D _BOT) h :
         KLEISLIL f << <| g, h|> =-= KLEISLIL (f << Id >< h ) << <|g, Id|>.
+move => D E F G f g h.
 apply: fmon_eq_intro. simpl. move => gg. unfold id. refine (KLEISLIL_eq _ _ _).
 intros d0 d1 vd0 vd1. rewrite -> vd0 in vd1. by rewrite (vinj vd1).
 intros d0 vd0. by exists d0. intros aa vv. by eexists ; apply vv.
@@ -564,6 +580,7 @@ Qed.
 
 Lemma KLEISLIL_comp2 D E F G H (f:D * E =-> F _BOT) (g:G =-> D) (h:H =-> E) :
         KLEISLIL f << kleisli (eta << g) >< h =-= KLEISLIL (f << g >< h).
+move => D E F G H f g h.
 apply: fmon_eq_intro. case => gg hh. simpl. apply: KLEISLIL_eq.
 - intros d0 d1 vd0 vd1. simpl. rewrite -> vd1 in vd0. rewrite -> kleisliVal in vd0.
   by rewrite -> (vinj vd0).
@@ -615,11 +632,11 @@ Qed.
 
 Lemma Operator2_Valeq D E F (f:D * E =-> F _BOT) d dl e el :
    dl =-= Val d -> el =-= Val e -> Operator2 f dl el =-= f (d,e).
-move => X Y. rewrite -> X. rewrite -> Y. by rewrite Operator2_simpl.
+move => D E F f d dl e el X Y. rewrite -> X. rewrite -> Y. by rewrite Operator2_simpl.
 Qed.
 
 Lemma KLEISLIL_Valeq D E F (g:D * E =-> F _BOT) dl d e : dl =-= Val d -> KLEISLIL g (dl,e) =-= g (d,e).
-move => X. unlock KLEISLIL. simpl. unfold Smash. unfold id. rewrite -> X. rewrite Operator2_simpl.
+move => D E F g dl d e X. unlock KLEISLIL. simpl. unfold Smash. unfold id. rewrite -> X. rewrite Operator2_simpl.
 by rewrite kleisliVal.
 Qed.
 
@@ -628,7 +645,7 @@ intros. refine (KLEISLIL_Valeq g _ (Oeq_refl _)).
 Qed.
 
 Lemma KLEISLIL_comp3 D E F G (g : F =-> G _BOT) (f:D * E =-> F) : KLEISLIL (g << f) =-= kleisli g << KLEISLIL (eta << f).
-apply:fmon_eq_intro => x. case: x => dl e. simpl.
+move => D E F G f g. apply:fmon_eq_intro => x. case: x => dl e. simpl.
 split ;  apply: DLless_cond.
 - intros gg kl. destruct (KLEISLIL_ValVal kl) as [d [Pdl P]]. rewrite -> (pair_eq_compat Pdl (tset_refl e)).
   do 2 rewrite KLEISLIL_simpl. simpl. by rewrite kleisliVal.

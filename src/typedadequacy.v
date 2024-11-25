@@ -2,10 +2,14 @@
  * typedadequacy.v                                                                *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 (* Require Import utility.*)
 Require Import PredomAll.
@@ -132,6 +136,7 @@ specialize (P n). specialize (C _ _ P). case: C => v' [ev' rv'].
 rewrite (Determinacy ev ev'). by apply rv'.
 Qed.
 
+(** TODO FIX
 (* Lemma 11.12 (iii) from Winskel *)
 
 (*CLEARED*)Lemma rel_admissible: forall t v, admissible (fun d => relVal t d v).
@@ -144,8 +149,8 @@ intros v c C. simpl. apply (C 0).
 (* Bool *)
 intros v c C. simpl. specialize (C 0). simpl in C. have e:lub c = c 0.
  unfold lub. simpl. unfold sum_lub. simpl. case: (SuminjProof c 0).
-  + simpl. case. case. move => e. by rewrite {2} e.
-  + simpl. case. case. move => e. by rewrite {2} e.
+  + simpl. case. case. move => e. by rewrite -> e.
+  + simpl. case. case. move => e. by rewrite -> e.
 by rewrite e.
 
 (* Arrow *)
@@ -182,6 +187,7 @@ split.
 - apply: IH'. move => n. specialize (C n). case: C => v3 [v4 [veq [C1 C2]]].
   destruct (TPAIR_injective veq) as [E1 E2]. subst. by apply C2.
 Qed.
+*)
 
 Lemma SemEnvCons : forall t E (env : SemEnv (t :: E)), exists d, exists ds, env =(ds, d).
 intros. dependent inversion env. exists s0. by exists s.
@@ -193,7 +199,7 @@ destruct eq. destruct H.  destruct H0.  trivial.
 Qed.
 
 Lemma relEnv_ext env senv s s' : (forall x y, s x y = s' x y) -> relEnv env senv s -> relEnv env senv s'.
-elim:env senv s s' ; first by [].
+elim ; first by [].
 move => a E IH env s s' C r.
 simpl. simpl in r. destruct r as [rl rr].
 split. unfold hdMap. rewrite <- (C a (ZVAR E a)). by apply rl.
@@ -202,12 +208,13 @@ refine (IH _ _ _ _ rr). intros x y. by specialize (C x (SVAR a y)).
 Qed.
 
 (*=FT *)
+(** TODO FIX :
 Theorem FundamentalTheorem E:
  (forall t v senv s, relEnv E senv s -> relVal t (SemVal v senv) (subVal s v)) /\
  (forall t e senv s, relEnv E senv s -> liftRel (relVal t) (SemExp e senv) (subExp s e)).
 (*=End *)
 Proof.
-move: E ; apply ExpVal_ind.
+apply ExpVal_ind.
 
 (* TINT *)
 by simpl; auto. 
@@ -387,4 +394,5 @@ have X: (relEnv nil tt (idSub nil)) by [].
 specialize (FT X). unfold liftRel in FT. specialize (FT d val). 
 destruct FT as [v [ev _]]. exists v. by rewrite (proj2 (applyIdSub _)) in ev.
 Qed.
+*)
 

@@ -2,27 +2,34 @@
  * uniisem.v                                                                      *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 (* semantics of unityped lambda calculus in recursive domain *)
 
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *) 
+
 Require Import PredomAll. 
-Require Import Fin unii uniirec.
+Require Import unii uniirec.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Import Prenex Implicits.
 
-Export RD.
+Module Sem.
+
+Include RD.
 
 (*=SemEnv *)
 Fixpoint SemEnv E : cpoType := match E with O => One | S E => SemEnv E * VInf end.
-Fixpoint SemVar E (v : Fin E) : SemEnv E =-> VInf :=
+Fixpoint SemVar E (v : Var E) : SemEnv E =-> VInf :=
   match v with 
-  | FinZ _   => pi2
-  | FinS _ v => SemVar v << pi1
+  | ZVAR _   => pi2
+  | SVAR _ v => SemVar v << pi1
   end.
 (*=End *)
 
@@ -55,7 +62,7 @@ auto.
 Qed.
 
 Lemma SimpleB_mon (A B :Type) (C:ordType) (op : A -> B -> C:Type) : monotonic (fun p:discrete_ordType A * discrete_ordType B => op (fst p) (snd p)).
-case => x0 y0. case => x1 y1. case ; simpl. move => L L'.
+move => A B C op. case => x0 y0. case => x1 y1. case ; simpl. move => L L'.
 have e:x0 = x1 by []. have e':y0 = y1 by []. rewrite e. by rewrite e'.
 Qed.
 
@@ -64,6 +71,7 @@ Definition SimpleBOpm (A B :Type) (C:ordType) (op : A -> B -> C:Type) : discrete
 
 Lemma SimpleB_cont (A B:Type) (C:cpoType) (op : A -> B -> C:Type) :
    @continuous (discrete_cpoType A * discrete_cpoType B) C (SimpleBOpm op).
+move => A B C op.
 move => c. simpl. apply: (Ole_trans _ (le_lub _ 0)). simpl.
 by [].
 Qed.
@@ -76,12 +84,12 @@ Fixpoint SemVal E (v:Value E) : SemEnv E =-> VInf :=
 match v return SemEnv E =-> VInf with
 | INT i => in1 << const _ i
 | VAR m => SemVar m
-| LAMBDA e => in2 << exp_fun (kleisli (eta << RD.Roll) << SemExp e << Id >< RD.Unroll)
-end with SemExp E (e:Exp E) : SemEnv E =-> RD.VInf _BOT :=
+| LAMBDA e => in2 << exp_fun (kleisli (eta << Roll) << SemExp e << Id >< Unroll)
+end with SemExp E (e:Exp E) : SemEnv E =-> VInf _BOT :=
 match e with
 | VAL v => eta  << SemVal v
-| APP v1 v2 => kleisli (eta << RD.Unroll) << ev << 
-    <| [| @const _ (exp_cppoType _ _) PBot , Id|] << SemVal v1, RD.Roll << SemVal v2 |>
+| APP v1 v2 => kleisli (eta << Unroll) << ev << 
+    <| [| @const _ (exp_cppoType _ _) PBot , Id|] << SemVal v1, Roll << SemVal v2 |>
 | LET e1 e2 => ev << <| exp_fun (KLEISLIR (SemExp e2)), SemExp e1 |>
 | OP op v0 v1 => kleisli (eta << in1 << SimpleBOp op) << uncurry (Smash _ _) <<
                   <| [| eta, const _ PBot|] << SemVal v0, [| eta, const _ PBot|] << SemVal v1|>
@@ -92,12 +100,12 @@ end.
 (*=End *)
 
 Lemma Operator2_strictL A B C (f:A * B =-> C _BOT) d : Operator2 f PBot d =-= PBot.
-apply: Ole_antisym ; last by apply: leastP.
+move => A B C f d. apply: Ole_antisym ; last by apply: leastP.
 unlock Operator2. simpl. by do 2 rewrite kleisli_bot.
 Qed.
 
 Lemma Operator2_strictR A B C (f:A * B =-> C _BOT) d : Operator2 f d PBot =-= PBot.
-apply: Ole_antisym ; last by apply: leastP.
+move => A B C f d. apply: Ole_antisym ; last by apply: leastP.
 unlock Operator2. simpl.
 apply: (Ole_trans (proj2 (fmon_eq_elim (kleisli_comp2 _ _) d))).
 apply: DLless_cond. move => c X.
@@ -118,4 +126,5 @@ as SemVal_eq_compat.
 intros e0 e1 eeq. by apply (fmon_stable (SemVal v)). 
 Qed.
 
+End Sem.
 

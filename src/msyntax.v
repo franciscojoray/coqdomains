@@ -11,7 +11,18 @@
    Presentation of the syntax is just a tad longwinded at the moment...
 *)
 
-Require Export ssreflect ssrnat ssrbool eqtype ssrfun Finmap.
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
+
+(** 8.5pl1 *)
+Set Nonrecursive Elimination Schemes.
+(** *)
+
+From mathcomp Require Export ssreflect ssrnat ssrbool eqtype ssrfun.
+Require Export Finmap.
+
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -37,8 +48,8 @@ Inductive Ty (n:nat) : Type :=
    Carsten
  *)
 
-Implicit Arguments Unit [n].
-Implicit Arguments Int [n].
+Arguments Unit [n].
+Arguments Int [n].
 
 Fixpoint TyEq n (x y:Ty n) : bool :=
 match x,y with
@@ -55,7 +66,7 @@ match x,y with
 end.
 
 Lemma TyEqP n : Equality.axiom (@TyEq n).
-move => x y. apply: (iffP idP) => [|<-].
+move => n x y. apply: (iffP idP) => [|<-].
 - elim: n / x y => n.
   + move => i l y.
     by case: y ; first by simpl ; move => i' l' e ; move: l' ; rewrite <- (eqnP e) ; clear ; move => l' ; rewrite (eq_irrelevance l l').
@@ -77,7 +88,7 @@ Canonical Structure Ty_eqMixin n := EqMixin (@TyEqP n).
 Canonical Structure Ty_eqType n := Eval hnf in EqType _ (@Ty_eqMixin n).
 
 Lemma Ty_eq_unique n : forall (t t' : Ty n) (p p':t = t'), p = p'.
-exact: eq_irrelevance.
+move => n. exact: eq_irrelevance.
 Qed.
 
 (* begin hide *)
@@ -129,7 +140,7 @@ match l with
 end.
 
 Lemma nth_error_nth A (l:seq A) n : nth_error l n = nth None (map (@Some _) l) n.
-elim: l n ; first by case ; by [].
+move => A. elim ; first by case ; by [].
 move => x xr IH. case ; first by [].
 move => n. simpl. by apply (IH n).
 Qed.
@@ -143,14 +154,14 @@ end p.
 Definition idsub n i : seq (Ty (n+i)) := @idsubr (n+i) i nil (leq_addl _ _).
 
 Lemma nth_error_map T T' (f:T -> T') (l:seq T) i : nth_error (map f l) i = option_map f (nth_error l i).
-elim: l i ; first by [].
+move => T T' f. elim ; first by [].
 move => e l IH. case ; first by [].
 by apply IH.
 Qed.
 
 Lemma tshiftRC n (t:Ty n) k i k' i' (a:(n + i + i') = (n + i' + i)) : k <= k' ->
      eq_rect _ Ty (tshiftR (k'+i) i' (tshiftR k i t)) _ a = tshiftR k i (tshiftR k' i' t).
-elim: n / t k i k' i' a.
+move => n t. elim: n / t.
 - move => n i l k j k' j' e lk. simpl.
   case_eq (i < k) => ik. simpl.
   + rewrite (ssrnat.leq_trans ik lk). simpl. rewrite ik.
@@ -203,7 +214,7 @@ elim: n / t k i k' i' a.
 Qed.
 
 Lemma tshiftR_tshiftR n (t:Ty n) k i j : tshiftR k i (tshiftR k j t) = eq_rect _ Ty (tshiftR k (j+i) t) _ (addnA _ _ _).
-elim: n / t k i j.
+move => n t. elim: n / t.
 - move => n i l k m j. simpl. case_eq (i < k) ; move => L.
   + have e:=(ssrnat.leq_trans l (leq_addr j n)). rewrite (eq_irrelevance (ssrnat.leq_trans l (leq_addr j n)) e).
     have e':=(ssrnat.leq_trans l (leq_addr (j + m) n)). rewrite (eq_irrelevance (ssrnat.leq_trans l (leq_addr (j + m) n)) e').
@@ -644,8 +655,8 @@ Lemma CValue_eq n (a b:Value n) (A:closedV a) (B:closedV b) : a = b -> CValue A 
 move => n a b A B e. move: A B. rewrite e. clear a e. move => A B. by rewrite (eq_irrelevance A B).
 Qed.
 
-Implicit Arguments CExp [n].
-Implicit Arguments CValue [n].
+Arguments CExp [n].
+Arguments CValue [n].
 
 Canonical Structure cvalue_subType (n:nat) :=
   Eval hnf in [subType for (@cval n) by (@cvalue_rect n)].
@@ -680,10 +691,10 @@ Canonical Structure cTAPP n t (v:cvalue n) := @CExp n (TAPP v t) (cvalueP v).
 (* end hide *)
 
 
-Implicit Arguments UNIT [n].
-Implicit Arguments VAR [n].
-Implicit Arguments INT [n].
-Implicit Arguments LOC [n].
+Arguments UNIT [n].
+Arguments VAR [n].
+Arguments INT [n].
+Arguments LOC [n].
 
 (* Now this is the typing judgement *)
 
@@ -852,6 +863,12 @@ move => i n x k m s s' m0 m1.
 unfold tshiftL. have a:= (addnC n i). rewrite (eq_irrelevance (addnC n i) a).
 generalize a. rewrite <- a. clear a. move => a. rewrite (eq_irrelevance a (refl_equal _)). simpl.
 by apply (tsubst_shiftRW _ m0 m1).
+Qed.
+
+(** new in 8.4 : absent in sreflect 1.4 *)
+Lemma subn_sub : forall m n p, (n - m) - p = n - (m + p).
+Proof.
+   by move=> m n p; elim: m n => [|m IHm] [|n]; try exact (IHm n). 
 Qed.
 
 Lemma nth_idsubr j i n k (ll:i < k) (l':i < n) (l:j <= n) (s:seq (Ty n)) : 
@@ -2391,10 +2408,11 @@ move => n. elim ; first by [].
 move=> i IH s' s. simpl. specialize (IH (VAR i:: s') s). by apply IH.
 Qed.
 
+(** updated for 8.4 *)
 Lemma idsubvr_l n i s j x : j >= i -> nth x (@idsubvr n i s) j = nth x s (j - i).
 move => n. elim. simpl. move => s j x L. by rewrite subn0.
 move => i IH s j x L. simpl @idsubvr. specialize (IH (VAR i :: s) j x (leqW L)). rewrite IH. clear IH.
-case: j L ; first by []. move => j L. rewrite subSS. by rewrite leq_subS ; last by apply L.
+case: j L ; first by []. move => j L. rewrite subSS. by rewrite subSn ; last by apply L.
 Qed.
 
 Lemma nth_idsubvr n i j s x : j < i -> (forall j, j < size s -> nth x s j = VAR (j+i)) -> nth x (@idsubvr n i s) j = VAR j.
@@ -2523,4 +2541,3 @@ Lemma substE_cid n (e:cexpression n) l : substE l e = e.
 move => n e l. rewrite (substE_eq (s':=[::]) (cexpP e)) ; last by [].
 by apply (@substE_id _ _ O _ (cexpP e)).
 Qed.
-

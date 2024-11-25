@@ -2,8 +2,8 @@
  * typedlambda.v                                                                  *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 
@@ -11,8 +11,13 @@
   Call-by-value simply-typed lambda-calculus with recursion, pairs, and arithmetic
   ==========================================================================*)
 
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
+
 Require Import Program.Equality.
-Require Export ssreflect ssrnat seq eqtype.
+From mathcomp Require Export ssreflect ssrnat seq eqtype.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Import Prenex Implicits.
@@ -58,8 +63,8 @@ with Exp E : Ty -> Type :=
 Definition CExp t := Exp nil t.
 Definition CValue t := Value nil t.
 (*=End *)
-Implicit Arguments TBOOL [E].
-Implicit Arguments TINT [E].
+Arguments TBOOL [E].
+Arguments TINT [E].
 
 (* begin hide *)
 Scheme Val_rec2 := Induction for Value Sort Set
@@ -85,8 +90,8 @@ Definition Map (P:Env -> Ty -> Type) E E' := forall t, Var E t -> P E' t.
 (* Head, tail and cons *)
 Definition tlMap P E E' t (m:Map P (t::E) E') : Map P E E' := fun t' v => m t' (SVAR t v).
 Definition hdMap P E E' t (m:Map P (t::E) E') : P E' t := m t (ZVAR _ _).
-Implicit Arguments tlMap [P E E' t].
-Implicit Arguments hdMap [P E E' t].
+Arguments tlMap [P E E' t].
+Arguments hdMap [P E E' t].
 
 
 Definition cast P (E E' : Env) (t : Ty) (x:P E t) (p:E=E') : P E' t.
@@ -101,7 +106,7 @@ Program Definition consMap P E E' t (v:P E' t) (m:Map P E E') : Map P (t::E) E' 
     | SVAR _ _ _ var => m _ var
     end.
 
-Implicit Arguments consMap [P E E' t].
+Arguments consMap [P E E' t].
 
 Axiom MapExtensional : forall P E E' (r1 r2 : Map P E E'), (forall t var, r1 t var = r2 t var) -> r1 = r2.
 
@@ -136,10 +141,10 @@ Section MapOps.
   | ZVAR _ _ => vr ops (ZVAR _ _)
   | SVAR _ _ _ x => wk ops _ (m _ x)
   end.
-  Implicit Arguments lift [env env'].
+  Arguments lift [env env'].
 
   Definition shiftMap env env' ty (m : Map P env env') : Map P env (ty :: env') := fun ty' => fun var => wk ops _ (m ty' var).
-  Implicit Arguments shiftMap [env env'].
+  Arguments shiftMap [env env'].
 
   Lemma shiftConsMap : forall env env' ty (m : Map P env env') (x : P env' ty) ty', shiftMap ty' (consMap x m) = consMap (wk ops _ x) (shiftMap ty' m). 
   Proof.
@@ -192,8 +197,8 @@ End MapOps.
 
 Hint Rewrite mapTVAR mapTINT mapTBOOL mapTPAIR mapTFST mapTSND mapTFIX mapTOP mapTGT mapTVAL mapTLET mapTIF mapTAPP : mapHints.
 
-Implicit Arguments lift [P env env'].
-Implicit Arguments shiftMap [P env env'].
+Arguments lift [P  ] : rename.
+Arguments shiftMap [P ] : rename.
 
 (*==========================================================================
   Variable renamings: Map Var
@@ -205,9 +210,9 @@ Definition RenMapOps := (Build_MapOps (fun _ _ v => v) TVAR SVAR).
 Definition renameVal := mapVal RenMapOps.
 Definition renameExp := mapExp RenMapOps.
 Definition liftRen := lift RenMapOps. 
-Implicit Arguments liftRen [env env'].
+Arguments liftRen [env env'].
 Definition shiftRen := shiftMap RenMapOps.
-Implicit Arguments shiftRen [env env'].
+Arguments shiftRen [env env'].
 
 Section RenDefs.
 
@@ -241,21 +246,22 @@ intros. apply MapExtensional. auto.  Qed.
   ==========================================================================*)
 
 Definition idRen env : Ren env env := fun ty (var : Var env ty) => var.
-Implicit Arguments idRen [].
+Arguments idRen [_] .
 
-Lemma liftIdRen : forall E t, liftRen _ (idRen E) = idRen (t::E).
+Lemma liftIdRen : forall E t, liftRen _ (@idRen E) = @idRen (t::E).
 intros. apply MapExtensional.  
 dependent destruction var; auto. 
 Qed.
 
 Lemma applyIdRen env : 
-   (forall ty (v : Value env ty), renameVal (idRen env) v = v)
-/\ (forall ty (e : Exp env ty), renameExp (idRen env) e = e).
-move: env. apply ExpVal_ind; 
+   (forall ty (v : Value env ty), renameVal (@idRen env) v = v)
+/\ (forall ty (e : Exp env ty), renameExp (@idRen env) e = e).
+Proof.
+apply ExpVal_ind; 
 (intros; try (autorewrite with renameHints using try rewrite liftIdRen; try rewrite liftIdRen; try rewrite H; try rewrite H0; try rewrite H1); auto).
 Qed.
 
-Lemma idRenDef : forall ty env, idRen (ty :: env) = consMap (ZVAR _ _) (shiftRen ty (idRen env)).
+Lemma idRenDef : forall ty env, @idRen (ty :: env) = consMap (ZVAR _ _) (shiftRen ty (@idRen env)).
 intros. apply MapExtensional. intros. dependent destruction var; auto. Qed.
 
 
@@ -265,8 +271,8 @@ intros. apply MapExtensional. intros. dependent destruction var; auto. Qed.
 
 Definition composeRen P env env' env'' (m : Map P env' env'') (r : Ren env env') : Map P env env'' := fun t var => m _ (r _ var). 
 
-Lemma liftComposeRen P ops E env' env'' t (m:Map P env' env'') (r:Ren E env') : lift ops t (composeRen m r) = composeRen (lift ops t m) (liftRen t r).
-apply MapExtensional. intros t0 var.
+Lemma liftComposeRen : forall P ops E env' env'' t (m:Map P env' env'') (r:Ren E env'), lift ops t (composeRen _ _ m r) = composeRen (lift ops t m) (liftRen t r).
+intros. apply MapExtensional. intros t0 var.
 dependent destruction var; auto. 
 Qed.
 
@@ -275,7 +281,7 @@ Lemma applyComposeRen env :
     mapVal ops (composeRen m s) v = mapVal ops m (renameVal s v))
 /\ (forall ty (e : Exp   env ty) P ops env' env'' (m:Map P env' env'') (s : Ren env env'),
     mapExp ops (composeRen m s) e = mapExp ops m (renameExp s e)).
-move: env.
+Proof.
 apply ExpVal_ind; intros; 
 autorewrite with mapHints renameHints; try rewrite liftComposeRen; try rewrite liftComposeRen; try rewrite <- H;
 try rewrite <- H0; try rewrite <- H1; auto.  
@@ -284,7 +290,7 @@ Qed.
 Lemma composeRenAssoc : 
   forall P env env' env'' env''' (m : Map P env'' env''') r' (r : Ren env env'), 
   composeRen m (composeRen r' r) = composeRen (composeRen m r') r.
-by []. Qed.
+Proof. auto. Qed.
 
 Lemma composeRenIdLeft : forall env env' (r : Ren env env'), composeRen (idRen _) r = r.
 Proof. intros. apply MapExtensional. auto. Qed.
@@ -306,10 +312,10 @@ Definition subVal := mapVal SubMapOps.
 Definition subExp := mapExp SubMapOps.
 
 Definition shiftSub := shiftMap SubMapOps.
-Implicit Arguments shiftSub [env env'].
+Arguments shiftSub [env env'].
 
 Definition liftSub := lift SubMapOps.
-Implicit Arguments liftSub [env env']. 
+Arguments liftSub [env env']. 
 
 Section SubDefs.
 
@@ -341,7 +347,7 @@ Hint Rewrite substTVAR substTPAIR substTINT substTBOOL substTFST substTSND subst
   ==========================================================================*)
 
 Definition idSub env : Sub env env := fun ty (x:Var env ty) => TVAR x.
-Implicit Arguments idSub [].
+Arguments idSub [].
 
 Lemma liftIdSub : forall env ty, liftSub ty (idSub env) = idSub (ty :: env).
 intros env ty. apply MapExtensional. unfold liftSub. intros.
@@ -352,7 +358,7 @@ Lemma applyIdSub env :
    (forall ty (v : Value env ty), subVal (idSub env) v = v)
 /\ (forall ty (e : Exp env ty), subExp (idSub env) e = e).
 Proof.
-move: env ; apply ExpVal_ind; intros; autorewrite with substHints; try rewrite liftIdSub; try rewrite liftIdSub; try rewrite H; try rewrite H0; try rewrite H1; auto.
+apply ExpVal_ind; intros; autorewrite with substHints; try rewrite liftIdSub; try rewrite liftIdSub; try rewrite H; try rewrite H0; try rewrite H1; auto.
 Qed.
 
 Notation "[ x , .. , y ]" := (consMap x .. (consMap y (idSub _)) ..) : Sub_scope. 
@@ -382,7 +388,7 @@ Lemma applyComposeRenSub E :
 /\ (forall t (e:Exp   E t) env' env'' (r:Ren env' env'') (s : Sub E env'),
     subExp (composeRenSub r s) e = renameExp r (subExp s e)).
 Proof.
-move: E ; apply ExpVal_ind;
+apply ExpVal_ind;
 (intros; try (autorewrite with substHints renameHints using try rewrite liftComposeRenSub; try rewrite liftComposeRenSub; try rewrite H; try rewrite H0; try rewrite H1); auto).
 Qed.
 
@@ -407,7 +413,7 @@ Lemma substComposeSub env :
 /\ (forall ty (e : Exp   env ty) env' env'' (s' : Sub env' env'') (s : Sub env env'),
     subExp (composeSub s' s) e = subExp s' (subExp s e)).
 Proof.
-move: env ; apply ExpVal_ind;
+apply ExpVal_ind;
 (intros; try (autorewrite with substHints using try rewrite liftComposeSub; try rewrite liftComposeSub; try rewrite H; try rewrite H0; try rewrite H1); auto).
 Qed.
 

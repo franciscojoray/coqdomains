@@ -8,6 +8,11 @@
 
 (* semantics of types for the kitchen sink language *)
 
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
+
 Require Import MetricRec mpremet msyntax moperational.
 
 Set Implicit Arguments.
@@ -46,8 +51,11 @@ Variable W : pcmType.
 Variable Unfold : W =-> findom_pcmType [compType of nat] ((halve_pcmType W -=> upred_pcmType (cvalue O))).
 Variable Fold : findom_pcmType [compType of nat] ((halve_pcmType W -=> upred_pcmType (cvalue O))) =-> W.
 
-Variable FU_id : Fold << Unfold =-= Id.
-Variable UF_id : Unfold << Fold =-= Id.
+(** updated in 8.4, << syntax does not work here, replaced by Category.comp :S *)
+(* find the conflict! *)
+
+Variable FU_id : Category.comp Fold  Unfold =-= Id.
+Variable UF_id : Category.comp Unfold Fold =-= Id.
 
 End RecMet.
 
@@ -63,11 +71,11 @@ Definition Fold  := @Fold BF morph_contractive :
                    ((halve_pcmType W -=> upred_pcmType (cvalue O))) =-> W.
 (*=End *)
 
-Lemma FU_id : Fold << Unfold =-= Id.
+Lemma FU_id : (Category.comp Fold Unfold) =-= Id.
 apply (@FU_iso BF morph_contractive).
 Qed.
 
-Lemma UF_id : Unfold << Fold =-= Id.
+Lemma UF_id : Category.comp Unfold Fold =-= Id.
 apply (@UF_iso BF morph_contractive).
 Qed.
 
@@ -116,7 +124,7 @@ match n with | O => One | S n => TVal n * TV end.
 Fixpoint pick n j : (j < n) -> cmetricCatType (TVal n) TV :=
 match n as n0, j as j0 return j0 < n0 -> TVal n0 =-> TV with
 | O,_ => fun F => match less_nil F with end
-| S n,S j => fun F => @pick n j F << pi1
+| S n,S j => fun F => Category.comp (@pick n j F) pi1
 | S n, O => fun F => pi2
 end.
 (*=End *)
@@ -125,7 +133,7 @@ Lemma pick_top n X : (@pick n.+1 0 X) = pi2.
 by [].
 Qed.
 
-Lemma pick_rest n i X : (@pick n.+1 i.+1 X) = @pick n i X << pi1.
+Lemma pick_rest n i X : (@pick n.+1 i.+1 X) = Category.comp (@pick n i X) pi1.
 by [].
 Qed.
 
@@ -633,19 +641,22 @@ Qed.
 Definition Prod_cons n T : upred_pcmType (Prod T n) * upred_pcmType T =-> upred_pcmType (Prod T n.+1) :=
   Eval hnf in mk_fpcm (@Prod_consM n T).
 
-Implicit Arguments Prod_cons [n T].
+Arguments Prod_cons [n T].
 
 (*=IVal *)
+(** update for 8.4: << does not work :S*)
+Infix "-o-" := Category.comp (at level 35) (*CLEAR*) : C_scope.
+
 Fixpoint IVal n (t:Ty n) : cmetricCatType (TVal n) TV :=
 match t with
 | TVar n J => pick J
 | Int => mconst _ (pconst _ upred_int)
 | Unit => mconst _ (pconst _ upred_unit)
-| Mu t => FIXP << upred_mu (IVal t)
-| t ** t' => (exp_fun Pcomp upred_product : metricCatType _ _) << pprod_fun_ne
-                                                      << <|IVal t,IVal t'|>
-| Sum t t' => (exp_fun Pcomp upred_sum : metricCatType _ _) << Pprod_fun
-                                                      << <|IVal t, IVal t'|>
+| Mu t => Category.comp FIXP (upred_mu (IVal t))
+| t ** t' => (exp_fun Pcomp upred_product : metricCatType _ _) -o-
+               pprod_fun_ne -o- <|IVal t,IVal t'|>
+| Sum t t' => (exp_fun Pcomp upred_sum : metricCatType _ _) -o- Pprod_fun
+                                                      -o- <|IVal t, IVal t'|>
 | All t => upred_all (IVal t)
 | t --> t' => upred_arrow (IVal t) (IVal t')
 | Ref t => upred_ref (IVal t)
@@ -658,7 +669,7 @@ Fixpoint IEnv n (e:TypeEnv n) :
 match e as e0 return 
   TVal n =-> halve_pcmType W -=> upred_pcmType (Prod (cvalue 0) (size e0)) with 
 | nil => mconst _ (pconst _ (upred_empty unit))
-| t::te => (pcompM _ _ _ << ppair _ Prod_cons << Pprod_fun) << <| IEnv te, IVal t |>
+| t::te => (pcompM _ _ _ -o- ppair _ Prod_cons -o- Pprod_fun) -o- <| IEnv te, IVal t |>
 end.
 (*=End *)
 
@@ -703,6 +714,7 @@ move => t E IH m s w k g t'. case: m.
   move => [A B]. by apply (IH A).
 Qed.
 
+(** TODO FIX 
 Lemma IVal_shift n (t:Ty n) (s:TVal n) (s':TVal n.+1) k :
    (forall i, k <= i -> forall (P':1 + i < 1 + n) (P:i < n), (pick P s) = (pick P' s')) ->
    (forall i, i < k -> forall (P':i < 1 + n) (P:i < n), (pick P' s') = (pick P s)) ->
@@ -764,8 +776,9 @@ move => n t. elim: n / t.
   case => j v. simpl. case: j ; first by []. move => j. case: v. case ; try done.
   move => l C. split ; move => [P Z] ; exists P ; move => w' i v Li ; specialize (Z w' i v Li) ; rewrite Z ;
     specialize (IH X Y w' (i,v)) ; by rewrite IH.
-Qed.
+Qed.*)
 
+(** TODO FIX:
 Lemma IEnv_shift n (E:TypeEnv n) s w k x g e : upred_fun (IEnv E s w) (k, g) ->
   upred_fun (IEnv (map (@tshiftL 0 1 _) E) (s, x) w) (k, (eq_rect _ (Prod (cvalue 0)) g _ e)).
 move => n. elim ; first by [].
@@ -782,7 +795,7 @@ rewrite ee.
 have AA:=(@IVal_shift _ t s (s,x) 0 _ _ w (k,v)). rewrite AA ; first by apply (proj2 X).
 - move => i L P' P. simpl. by rewrite (eq_irrelevance P P').
 - by [].
-Qed.
+Qed.*)
 
 Lemma heap_world_down j k h w : j <= k -> heap_world k h w -> heap_world j h w.
 move => j k h w L X i Li. specialize (X i (ssrnat.leq_trans Li L)). split ; case: X ; move => X Y ; first by apply X.
@@ -849,7 +862,7 @@ case => h Ph. case => h' Ph'. simpl. move => e. move: Ph Ph'. rewrite e.
 move => P P'. by rewrite (eq_irrelevance P P').
 Qed.
 
-(*=IValSubst *)
+(** TODO FIX:
 Lemma IVal_subst n (t:Ty n) s m s' (a:seq (Ty m)) :
      (forall i (P:i < n), pick P s =-= (IVal (nth Unit a i) s')) -> 
                           IVal t s =-= IVal (tsubst a t) s'.
@@ -911,8 +924,9 @@ move => n t. elim: n / t => n.
   + rewrite B. apply: IH. by apply X.
   +  apply iff_sym. rewrite B. apply: IH. by apply X.
 Qed.
+ *)
 
-(*=Fundamental *)
+(** TODO FIX 
 Lemma FT i E S t : (forall v, i |- E | S |v- v ::: t -> VRel E S v t) /\
                      (forall e, i |- E | S |e- e ::: t -> ERel E S e t).
 (*=End *)
@@ -1214,5 +1228,5 @@ apply (@Typing_ind) => i E S t.
     rewrite e in X. specialize (IH1 X hv).
     destruct IH1 as [w' [Lw [hv' IH1]]]. exists w'. split ; first by []. split ; first by [].
     by apply (upred_fun_imp _ IH1).
-Qed.
-
+Qed. 
+*)

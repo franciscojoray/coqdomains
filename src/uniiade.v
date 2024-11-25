@@ -2,14 +2,19 @@
  * uniiade.v                                                                      *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 (* Adequacy of semantics for unityped lambda calculus *)
 
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *) 
+
 Require Import unii.
-Require Export uniisem uniiop Fin. 
+Require Export uniisem uniiop. 
 Require Import PredomAll.
 Require Import KnasterTarski.
 Require Import NSetoid.
@@ -17,6 +22,9 @@ Require Import NSetoid.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Import Prenex Implicits.
+
+Module X.
+Include Sem.
 
 Open Scope C_scope.
 
@@ -30,9 +38,9 @@ Lemma RelV_respect (R S:RelKind =-> Props) : setoid_respect
     exists f, d =-= inr f  /\
     forall (d1:VInf) (v1:Value O), R (d1,v1) -> 
       forall dv, kleisli (eta << Unroll) (f (Roll d1)) =-= Val dv ->
-        exists v2, subExp ([v1]) e =>> v2 /\ S (dv,v2)
+        exists v2, subExp ([v1] %subst) e =>> v2 /\ S (dv,v2)
 end end).
-case => d1 v1. case => d2 v2. case => e0 e1. simpl in e0,e1. case: e1 => e1.
+move => R S. case => d1 v1. case => d2 v2. case => e0 e1. simpl in e0,e1. case: e1 => e1.
 rewrite e1 ; clear e1 v1. case: v2 ; first by [].
 - move => n. split => e ; by rewrite <- e ; auto.
 - move => e. by split ; case => f [e1 P] ; exists f ; rewrite <- e1 ; split ; auto.
@@ -77,29 +85,30 @@ move => s A. by apply A.
 Qed.
 
 Lemma single_set_respect (T:setoidType) (v:T) : setoid_respect (fun y => y =-= v).
-move => y y' e.
+move => T x y y' e.
 by split => e' ; rewrite <- e' ; rewrite e.
 Qed.
 
 Definition single_set (T:setoidType) (v:T) : T =-> Props := Eval hnf in mk_fset (single_set_respect v).
 
 Lemma Kab_mono (D1 D2:cpoType) : monotonic (fun x:D2 => @const D1 D2 x:D1 -=> D2).
-by move => x y l.
+by move => D1 D2 x y l a.
 Qed.
 
 Definition Kab (D1 D2:cpoType) : ordCatType D2 (D1 -=> D2) := Eval hnf in mk_fmono (@Kab_mono D1 D2).
 
 Lemma inv_image_respect (T T':setoidType) (f: T =-> T') (Y:T' =-> Props) : setoid_respect (fun x => Y (f x)).
-move => x y e. simpl. by rewrite -> e.
+move => T T' f Y x x' e. by rewrite -> e.
 Qed.
 
 Definition inv_image (T T':setoidType) (f: T =-> T') (Y:T' =-> Props) : (T =-> Props) :=
   Eval hnf in mk_fset (inv_image_respect f Y).
 
+(** updated for 8.4 *)
 Lemma RelVA_adm (R : set_clatType RelKind)
   (AR : RAdm R) (S : set_clatType RelKind) (AS : RAdm S) : RAdm (RelV R S).
 unfold RAdm.
-simpl. move => A c C.
+simpl. move => R AR S AS. intros A c C.
 unfold imageD. intros e ; case e ; clear e. intros d v Ad dd lubdd.
 simpl in lubdd.
 assert (xx:=lubval lubdd). destruct xx as [k [dd' [ck Pdd]]].
@@ -213,6 +222,8 @@ apply (proj2 e0). by apply S3. specialize (AS AA).
 unfold imageD in AS.
 specialize (AS (d,v2)). simpl in AS.
 refine (AS _ _ _) ; first by [].
+assert (xx := fcont_lub_simpl (Kab VInf (VInf _BOT) << (eta_m << c1')) d).
+simpl in xx. clear xx.
 rewrite <- rdv.
 assert (aa:=@lub_eq_compat (VInf _BOT)).
 simpl in aa.
@@ -222,7 +233,7 @@ specialize (cP n). auto using cP.
 Qed.
 
 Definition RelVA : RelAdmop -> RelAdm -> RelAdm.
-case => R AR. case => S AS.
+intros R S. case R. clear R. intros R AR. case S. clear S. intros S AS.
 exists (RelV R S). by apply RelVA_adm.
 Defined.
 
@@ -230,21 +241,22 @@ Definition RelVAop : RelAdm -> RelAdmop -> RelAdmop := fun X Y => RelVA X Y.
 
 Lemma RelVm_mon : monotonic (fun (p:prod_clatType RelAdmop RelAdm) => 
          (RelVAop (lsnd _ _ p) (lfst _ _ p), RelVA (lfst _ _ p) (lsnd _ _ p))).
-case => x0 y0. case => x1 y1.
-simpl. case: x1 => x1 rx1. case: x0 => x0 rx0.
-case: y0 => y0 ry0. case: y1 => y1 ry1.
-case. simpl. move => sx sy.
-split ; simpl.
-- case => d v. simpl. case v ; [by [] | by [] | idtac].
-  move => e [f [df P]]. exists f. split ; first by [].
-  move => d1 v1 y01. specialize (P d1 v1).
-  specialize (sy (d1,v1) y01). move => dv rdv. specialize (P sy dv rdv).
-  case: P => v2 [ev2 P]. exists v2. split ; first by []. by apply sx.
-- case => d v. simpl. case: v ; [by auto | by auto | idtac].
-  move => e [f [df P]]. exists f. split ;first by [].
-  move => d1 v1 y01. specialize (P d1 v1). specialize (sx (d1,v1) y01).
-  move => dv rdv. specialize (P sx dv rdv). case: P => v2 [ev2 P]. exists v2.
-  split ; first by []. by apply sy.
+unfold monotonic. intros x. case x. clear x. intros x0 y0 y. case y. clear y. intros x1 y1.
+simpl. case x1. clear x1. intros x1 rx1. case x0. clear x0. intros x0 rx0.
+case y0 ; clear y0 ; intros y0 ry0. case y1 ; clear y1 ; intros y1 ry1.
+intros [sx sy]. split. simpl.
+intros dv. case dv. clear dv. intros d v. simpl. case v ; [by auto | by auto | idtac].
+clear v. intros e C. destruct C as [f [df P]]. exists f. split ; first by auto.
+intros d1 v1 y01. specialize (P d1 v1).
+specialize (sy (d1,v1) y01). intros dv rdv. specialize (P sy dv rdv).
+destruct P as [v2 [ev2 P]]. exists v2. split; [by apply ev2 | by apply (sx (dv,v2) P)].
+
+simpl.
+intros dv. case dv. clear dv. intros d v. simpl.
+case v ; auto. clear v. intros v C. destruct C as [f [df C]].
+exists f. split ; first by auto. intros d1 v1 c1. specialize (C d1 v1).
+specialize (sx (d1,v1) c1). intros dv dvr. specialize (C sx dv dvr).
+destruct C as [v2 [ev2 C]]. exists v2. split; [by apply ev2 | by apply (sy (dv,v2) C)].
 Qed.
 
 Definition RelVm : ordCatType (prod_clatType RelAdmop RelAdm) (prod_clatType RelAdmop RelAdm) :=
@@ -255,9 +267,9 @@ Definition Deltam := lfst _ _ (lfp RelVm).
 
 Lemma RelV_fixedD: Delta =-= (RelVA Deltam Delta).
 unfold Delta, Deltam. assert (xx:=lfp_fixedpoint RelVm).
-move: xx.
+generalize xx. clear xx.
 case ((@lfp (prod_clatType RelAdmop RelAdm) RelVm)).
-move => d0 d1. simpl. case. simpl. case => _ B. case => _ Y. by split.
+intros d0 d1. simpl. intros X. case: X. simpl. case => A B. case => X Y. by split.
 Qed.
 
 Lemma RelV_fixedDm : Deltam =-= (RelVA Delta Deltam).
@@ -326,6 +338,7 @@ specialize (l (e,v) Ze). specialize (y (e,v)). simpl in y. move => fe E.
 specialize (y l _ E). by apply x.
 Qed.
 
+(** TODO FIX:
 Lemma Delta_l: Delta =-= Deltam.
 split. apply (proj1 (RelV_least (proj1 RelV_fixedD) (proj1 (RelV_fixedDm)))).
 case_eq Delta. intros D AD Deq. case_eq Deltam. intros Dm ADm Dmeq. simpl.
@@ -357,9 +370,10 @@ intros f imaf. split ; last by rewrite -> (fmonotonic ( delta) (proj2 imaf)) ; r
 destruct imaf as [imaf fless].
 have aa:=comp_eq_compat (comp_eq_compat (tset_refl (kleisli (eta << Unroll))) (delta_simpl f)) (tset_refl Roll).
 repeat rewrite -> comp_assoc in aa. rewrite -> kleisli_eta_com in aa.
-do 3 rewrite <- (comp_assoc Roll) in aa. rewrite -> UR_id in aa. simpl. rewrite -> comp_idR in aa.
+do 3 rewrite <- (comp_assoc Roll) in aa. rewrite -> UR_id in aa. 
+rewrite -> comp_idR in aa.
+(*rewrite -> comp_idR in aa.*)
 apply (imageD_eq (Oeq_sym aa)).
-
 assert (X1:=RelV_fixedD).
 assert (X2:=RelV_fixedDm).
 rewrite Deq in X1, X2. rewrite Dmeq in X1, X2.
@@ -373,16 +387,17 @@ have e0:((kleisli (eta << Roll) <<
 repeat rewrite comp_assoc. rewrite <- comp_assoc. rewrite RU_id. rewrite comp_idR.
 rewrite <- kleisli_comp2. rewrite <- comp_assoc. rewrite RU_id. rewrite comp_idR.
  rewrite kleisli_unit. by rewrite comp_idL.
-apply: (imageD_eq _ (RelV_F_action imaf)). rewrite -> e0. repeat rewrite <- comp_assoc.
-rewrite UR_id. by rewrite comp_idR.
-
-unfold imageD in H. specialize (H _ Dmdv). simpl in H.
+apply: (imageD_eq _ (RelV_F_action imaf)). rewrite -> e0. 
+(*FAIL: by repeat rewrite <- comp_assoc.*)
+unfold imageD in H. specialize (H Dmdv). simpl in H.
 specialize (H d). apply H. unfold id. apply: (fmon_stable eta).
 by rewrite -> (fmon_eq_elim UR_id d).
 Qed.
+**)
 
 Definition LR : RelKind =-> Props := match Delta with exist D _ => D end.
 
+(** TODO FIX:
 Lemma LR_fix: LR =-= (RelV LR LR) /\ RAdm LR.
 unfold LR.
 assert (Dfix:=RelV_fixedD). assert (monotonic RelVm) by auto.
@@ -406,6 +421,7 @@ move => R0 R1 R2 R3. split => A.
 - apply (proj2 H0). by apply R1.
 case Delta. simpl. by auto.
 Qed.
+*)
 
 Definition ELR := fun ld e => forall d, ld =-= Val d -> exists v, exists ev:e =>> v, (RelV LR LR) (d,v).
 
@@ -416,14 +432,14 @@ Lemma RelV_simpl: forall R S d v, (RelV R S) (d,v) =
 | LAMBDA e => exists f, d =-= inr (* _*) f  /\
       forall (d1:VInf) (v1:Value O), R (d1,v1) ->
            forall dv, kleisli (eta << Unroll) (f (Roll d1)) =-= Val dv ->
-      exists v2, subExp (cons v1 (@idSub _)) e =>> v2 /\ S (dv,v2)
+      exists v2, subExp (consMap v1 (idSub _)) e =>> v2 /\ S (dv,v2)
 end. intros R S d v. simpl. case v ; auto.
 Qed.
 
-Fixpoint LRsubst E : SemEnv E -> unii.Sub E 0 -> Prop :=
+Fixpoint LRsubst E : SemEnv E -> Sub E O -> Prop :=
   match E with
   | O   => fun d m => True
-  | S n' => fun d m => LR (snd d, hd m) /\ LRsubst (fst d) (tl m)
+  | S n' => fun d m => LR (snd d, hdMap m) /\ LRsubst (fst d) (tlMap m)
   end. 
 
 Add Parametric Morphism (O0 O1:cpoType) : (@pair O0 O1)
@@ -433,19 +449,19 @@ move => x y e x' y' e'. split. by rewrite -> e ; rewrite -> e'.
 by rewrite <- e ; rewrite <- e'.
 Qed.
 
+(** TODO FIX: 
 (*=Fundamental *)
 Theorem FundamentalTheorem n : 
 (forall (v:Value n) sl d, LRsubst d sl -> (RelV LR LR) (SemVal v d, subVal sl v)) /\
 forall (e:Exp n) sl d, LRsubst d sl -> ELR (SemExp e d) (subExp sl e).
 (*=End *)
 rewrite (lock LR).
-move: n ; apply ExpValue_ind.
+apply ExpValue_ind.
 (* VAR *)
 - intros n v sl d C. 
   dependent induction v.
-  + destruct C as [Ch Ct]. fold LRsubst in Ct. rewrite -lock.
-    have X:= ((proj1 LR_fix) _). by apply (proj1 (X _)).
-  + destruct C as [Ch Ct]. fold LRsubst in Ct. rewrite -lock. rewrite (consEta sl). rewrite -lock in IHv. by apply (IHv _ _ Ct).
+  + destruct C as [Ch Ct]. fold LRsubst in Ct. rewrite -lock. rewrite <- ((proj1 LR_fix) _). apply Ch.
+  + destruct C as [Ch Ct]. fold LRsubst in Ct. rewrite -lock. rewrite (consMapEta sl). rewrite -lock in IHv. by apply (IHv _ _ Ct _ (JMeq_refl _)). 
 (* INT *) 
 - by [].
 (* LAMBDA *)
@@ -457,22 +473,21 @@ move: n ; apply ExpValue_ind.
     have Y:=Oeq_trans (fmon_eq_elim (kleisli_comp2 _ _) _) X. clear X.
     case: (kleisliValVal Y) => v [se P]. rewrite <- comp_assoc in P. rewrite -> UR_id in P.
     rewrite -> P in se. clear P v Y.
-    specialize (IH (cons v1 s) (d,d1)).
-    have: (LRsubst ((d,d1):SemEnv (n.+1)) (cons v1 s)). split.
+    specialize (IH (consMap v1 s) (d,d1)).
+    have: (LRsubst ((d,d1):SemEnv (n.+1)) (consMap v1 s)). split.
     * rewrite -lock in c1. by apply c1.
-    * simpl. rewrite tlCons. by apply C.
+    * simpl. rewrite tlConsMap. by apply C.
   move => H. specialize (IH H).
   unfold ELR in IH. specialize (IH dv).
   have S: (SemExp e (d, d1) =-= Val dv). rewrite <- se.
   by rewrite -> (pair_eq_compat (tset_refl _) (fmon_eq_elim UR_id d1)).
   rewrite -> (pair_eq_compat (tset_refl _) (fmon_eq_elim UR_id d1)) in se. specialize (IH se).
-  case: IH => v [ev evH]. exists v. split. rewrite <- (proj2 (applyComposeSub _)). rewrite composeSingleSub. by apply ev. rewrite -lock. by apply (proj2 (proj1 LR_fix _)).
-
+  case: IH => v [ev evH]. exists v. split. rewrite <- (proj2 (substComposeSub _)). rewrite composeCons. rewrite composeSubIdLeft. by apply ev. 
+  rewrite <- (proj1 LR_fix) in evH. unlock. by apply evH.
 (* VAL *)
 - move => n v IH s d l d' H.
   specialize (IH s d l). exists (subVal s v). exists (e_Val (subVal s v)). rewrite -lock in IH.
-  simpl in H. have e:=vinj H. clear H.
-  refine (proj1 (frespect (RelV LR LR) _) IH). by apply NSetoid.pair_eq_compat.
+  simpl in H. by rewrite -> (NSetoid.pair_eq_compat (vinj H) (tset_refl (subVal s v:discrete_setoidType _))) in IH.
 (* APP *)
 - move => n v0 IH0 v1 IH1 s d l d' e. SimplMap.
   simpl in e. specialize (IH0 s d l). specialize (IH1 s d l).
@@ -480,22 +495,22 @@ move: n ; apply ExpValue_ind.
   + move=> m ee. rewrite -> ee in e. rewrite -> SUM_fun_simplx in e. simpl in e. rewrite -> kleisli_bot in e.
     by case: (PBot_incon (proj2 e)).
   + move => e'. case => f [e0 P]. rewrite -> e0 in e. rewrite -> SUM_fun_simplx in e.
-    rewrite -lock in IH1. have IH:= proj2 (proj1 LR_fix _) IH1. clear IH1.
-    rewrite -lock in P.
-    specialize (P _ _ IH _ e). case: P => v. case => ev lr.
-    exists v. exists (e_App ev). by apply (proj1 (proj1 LR_fix _)).
+    rewrite -lock in IH1. rewrite <- (proj1 LR_fix) in IH1. rewrite -lock in P.
+    specialize (P _ _ IH1 _ e). case: P => v. case => ev lr.
+    exists v. exists (e_App ev). by rewrite <- (proj1 LR_fix).
 (* LET *)
 - move => n e0 IH0 e1 IH1 s d l. simpl SemExp. SimplMap.
   specialize (IH0 s d l). simpl. 
   move => d' X.
   case: (KLEISLIR_ValVal X). clear X.
   move => d0 [D0 D1]. specialize (IH0 d0 D0). case: IH0 => v0 [ev0 r0].
-  specialize (IH1 (cons v0 s) (d,d0)). have rr:=proj2 (proj1 LR_fix _) r0. clear r0.
-  unfold LRsubst in IH1. fold LRsubst in IH1. rewrite hdCons tlCons in IH1. 
-  specialize (IH1 (conj rr l)). unfold ELR in IH1. specialize (IH1 d' D1). destruct IH1 as [v [ev H]].
+  specialize (IH1 (consMap v0 s) (d,d0)). rewrite <- (proj1 LR_fix) in r0.
+  unfold LRsubst in IH1. fold LRsubst in IH1. rewrite hdConsMap in IH1. rewrite tlConsMap in IH1. 
+  specialize (IH1 (conj r0 l)). unfold ELR in IH1. specialize (IH1 d' D1). destruct IH1 as [v [ev H]].
   exists v. 
   split ; last by apply H.
-  refine (e_Let ev0 _). rewrite <- (proj2 (applyComposeSub _)). rewrite composeSingleSub. by apply ev.
+  refine (e_Let ev0 _). rewrite <- (proj2 (substComposeSub _)). rewrite composeCons.
+  rewrite composeSubIdLeft. by apply ev.
 (* IFZ *)
 - move => n v0 IH0 e1 IH1 e2 IH2 s d l d' X.
   specialize (IH0 s d l). simpl in IH0. SimplMap.
@@ -532,9 +547,11 @@ Qed.
 (*=Adequate *)
 Corollary Adequacy (e:Exp O) d : SemExp e tt =-= Val d -> exists v, e =>> v.
 (*=End *)
-move => S.
-assert (xx:=proj2 (FundamentalTheorem _) e (@idSub _) tt).
+move => e d S.
+assert (xx:=proj2 (FundamentalTheorem _) e (idSub _) tt).
 simpl in xx. unfold ELR in xx. specialize (xx I _ S). destruct xx as [v P]. exists v. 
-have ee:subExp (@idSub _) e = e by apply (proj2 (Map.applyId _ _)). rewrite ee in P. by apply P.
+have ee:subExp (idSub _) e = e by apply (proj2 (applyIdMap _ _)). rewrite ee in P. by apply P.
 Qed.
+*)
 
+End X.

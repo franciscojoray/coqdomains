@@ -2,11 +2,16 @@
  * uniirec.v                                                                      *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 (* Construction of recursive domain for interpreting unityped lambda calculus *)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *) 
 
 Require Export PredomAll.
 Require Import PredomRec.
@@ -17,7 +22,8 @@ Import Prenex Implicits.
 
 (*=kcpoCat *)
 Lemma kcpoCatAxiom : @Category.axiom cpoType 
-  (fun X Y => exp_cppoType X (liftCppoType Y)) (fun X Y Z f g => kleisli f << g) (@eta).
+                                     (fun X Y => exp_cppoType X (liftCppoType Y))
+                                     (fun X Y Z f g => kleisli f << g) (@eta).
 (*CLEAR*)
 split ; last split ; last split.
 - move => D0 D1 f. simpl. rewrite kleisli_unit. by rewrite comp_idL.
@@ -61,6 +67,7 @@ Qed.
 Canonical Structure kcpoTermincalCatMixin :=
    @terminalCatMixin kcpoCatType (Zero: kcpoCatType)
     (fun X => const _ (PBot: (liftCpoPointedType Zero))) kcpoTerminalAxiom.
+
 Canonical Structure kcpoTerminalCat := Eval hnf in @terminalCatType kcpoCatType kcpoTermincalCatMixin.
 
 Lemma kcpo_comp_eq (X Y Z : cpoType) m m' : ((CCOMP X (Y _BOT) (Z _BOT)) << KLEISLI >< Id) (m,m') =-= Category.tcomp kcpoCatMixin m m'.
@@ -86,7 +93,7 @@ Definition ProjSet (T:Tower kcpoBaseCatType) := fun (d:prodi_cpoType (fun n => t
       exists n, exists e, PROJ (fun n => tobjects T n _BOT) n d =-= Val e.
 
 Lemma ProjSet_inclusive T : admissible (@ProjSet T).
-unfold ProjSet. unfold admissible.
+move => T. unfold ProjSet. unfold admissible.
 intros c C n.
 split. do 3 rewrite -> lub_comp_eq.
 refine (lub_eq_compat _).
@@ -104,26 +111,27 @@ exists dn. by apply Y.
 Qed.
 
 Definition kcpoCone (T:Tower kcpoBaseCatType) : Cone T.
-exists (sub_cpoType (@ProjSet_inclusive T)) (fun i:nat => PROJ _ i << Forget (@ProjSet_inclusive T)).
-move => i. apply: fmon_eq_intro. case => d Pd.
-by apply (Oeq_sym (proj1 (Pd i))).
+  move => T. exists (sub_cpoType (@ProjSet_inclusive T))
+              (fun i:nat => PROJ _ i << Forget (@ProjSet_inclusive T)).
+  move => i. apply: fmon_eq_intro. case => d Pd.
+    by apply (Oeq_sym (proj1 (Pd i))).
 Defined.
 
-Implicit Arguments InheritFun [D E P].
+Arguments InheritFun [D E P].
 
 Lemma retract_total D E (f:D =-> E _BOT) (g:E =-> D _BOT) : kleisli f << g =-= eta -> total g.
-unfold total. move => X d. have X':=fmon_eq_elim X d.
+move => D E f g. unfold total. move => X d. have X':=fmon_eq_elim X d.
 case: (kleisliValVal X'). move => e [Y _]. exists e. by apply Y.
 Qed.
 
 Lemma xx (T:Tower kcpoBaseCatType) i : (forall d : tobjects T i, ProjSet (PRODI_fun (t_nm T i) d)).
-move => d n. split. simpl.
+move => T i d n. split. simpl.
 by rewrite -> (fmon_eq_elim (t_nmProjection T i n) d).
 exists i. exists d. simpl. by rewrite t_nn_ID.
 Qed.
 
 Definition kcpoCocone (T:Tower kcpoBaseCatType) : CoCone T.
-exists (sub_cpoType (@ProjSet_inclusive T)) (fun i => eta << @InheritFun _ _ _ (@ProjSet_inclusive T) (PRODI_fun (t_nm T i)) (@xx T i)).
+move => T. exists (sub_cpoType (@ProjSet_inclusive T)) (fun i => eta << @InheritFun _ _ _ (@ProjSet_inclusive T) (PRODI_fun (t_nm T i)) (@xx T i)).
 move => i. rewrite {1} /Category.comp. simpl. apply: fmon_eq_intro => d. split.
 - apply: DLless_cond. case => x Px C. case: (kleisliValVal C). clear C.
   move => y [md X].
@@ -142,9 +150,10 @@ move => i. rewrite {1} /Category.comp. simpl. apply: fmon_eq_intro => d. split.
   rewrite <- e. by apply (proj1 (fmon_eq_elim (t_nmEmbedding T i n) d)).
 Defined.
 
-Lemma limit_def (T:Tower kcpoBaseCatType) (C:Cone T) d n e' : mcone C n d =-= Val e' ->
+Lemma limit_def (T:Tower kcpoBaseCatType) (C:Cone T) d n e' :
+  mcone C n d =-= Val e' ->
    exists e, lub (chainPE (kcpoCocone T) C) d =-= Val e.
-move => X. simpl.
+move => T C d n e' X. simpl.
 have aa:exists e, (fcont_app (chainPE (kcpoCocone T) C) d) n =-= Val e.
 exists (@InheritFun _ _ _ (@ProjSet_inclusive T) (PRODI_fun (t_nm T n)) (@xx T n) e').
 apply (@Oeq_trans _ _ (kleisli (eta << InheritFun (@ProjSet_inclusive T) (PRODI_fun (t_nm T n)) (@xx T _)) (mcone C n d))) ; first by [].
@@ -155,12 +164,16 @@ Qed.
 (*=kcpoLimit *)
 Definition kcpoLimit (T:Tower kcpoBaseCatType) : Limit T.
 (*=End *)
-exists (kcpoCone T) (fun C : Cone T => lub (chainPE (@kcpoCocone T) C)).
+move => T. exists (kcpoCone T) (fun C : Cone T => lub (chainPE (@kcpoCocone T) C)).
 move => C n. simpl. split.
-- apply: (Ole_trans _ (comp_le_compat (Ole_refl _) (le_lub (chainPE (kcpoCocone T) C) n))).
+- apply: (Ole_trans _ (comp_le_compat (Ole_refl _)
+                                      (le_lub (chainPE (kcpoCocone T) C) n))).
   simpl. rewrite {1} /Category.comp. simpl. rewrite comp_assoc. rewrite <- kleisli_comp2.
-  rewrite <- comp_assoc. rewrite -> ForgetInherit. rewrite prodi_fun_pi. rewrite t_nn_ID. rewrite kleisli_unit.
-  by rewrite comp_idL. simpl.
+  rewrite <- comp_assoc. rewrite -> ForgetInherit. rewrite prodi_fun_pi.
+  rewrite t_nn_ID. rewrite kleisli_unit.
+    by rewrite comp_idL.
+
+    simpl.
   rewrite {1} / Category.comp. simpl.
   refine (Ole_trans (Oeq_le (PredomCore.comp_lub_eq _ (chainPE (kcpoCocone T) C))) _).
   rewrite (lub_lift_left _ n). apply: lub_le => i. simpl. rewrite comp_assoc.
@@ -168,12 +181,18 @@ move => C n. simpl. split.
     (PROJ (fun n0 : nat => tobjects T n0 _BOT) n << Forget (@ProjSet_inclusive T))).
   rewrite <- comp_assoc. rewrite ForgetInherit. rewrite prodi_fun_pi. by apply (proj2 ((coneCom_l C (leq_addr i n)))).
 - move => C h X. apply: fmon_eq_intro => d. simpl in h. split.
-  + apply: DLless_cond. case => x Px E. case: (proj2 (Px 0)) => n. case => y Py. rewrite -> E.
-    have A:=(fmon_eq_elim (X n) d). have AA:=tset_trans A (fmon_stable (kleisli _) E). clear A.
-    have A:=tset_trans AA (kleisliVal _ _). clear AA. simpl in A. rewrite -> Py in A.
-    case: (limit_def A) => lc e. rewrite -> e. apply: DLle_leVal. case: lc e => lc Plc e. unfold Ole. simpl.
+  + apply: DLless_cond. case => x Px E. case: (proj2 (Px 0)) => n.
+    case => y Py. rewrite -> E.
+    have A:=(fmon_eq_elim (X n) d).
+    have AA:=tset_trans A (fmon_stable (kleisli _) E). clear A.
+    have A:=tset_trans AA (kleisliVal _ _). clear AA. simpl in A.
+    rewrite -> Py in A.
+    case: (limit_def A) => lc e. rewrite -> e. apply: DLle_leVal.
+    case: lc e => lc Plc e. unfold Ole. simpl.
     move => i. specialize (X i). have Xi:=fmon_eq_elim X d.
-    have Xii: (mcone C i) d =-= (kleisli (PROJ _ i << Forget (@ProjSet_inclusive T)) ( h d)) by apply Xi.
+    have Xii: (mcone C i) d =-= (kleisli (PROJ _ i <<
+                                Forget (@ProjSet_inclusive T)) ( h d))
+      by apply Xi.
     rewrite -> E in Xii. rewrite -> kleisliVal in Xii. simpl in Xii.
     rewrite <- Xii. clear Xi Xii.
     simpl in e. have aa := Ole_trans (le_lub _ i) (proj1 e). clear e h X E. simpl in aa.
@@ -184,7 +203,12 @@ move => C n. simpl. split.
     have aa:=vleinj bb. clear bb. unfold Ole in aa. simpl in aa. specialize (aa i). simpl in aa.
     rewrite <- aa. by rewrite -> (fmon_eq_elim (t_nn_ID T i) di).
   + simpl. apply: lub_le => n. specialize (X n). have Y:=fmon_eq_elim X d. clear X.
-    simpl mcone in Y. simpl. apply Ole_trans with (y:=kleisli (eta << (@InheritFun _ _ _ (@ProjSet_inclusive T) (PRODI_fun (t_nm T n)) (@xx T n))) ( (mcone C n) d))  ; first by [].
+    simpl mcone in Y. simpl.
+    apply Ole_trans with (y:=kleisli (eta <<
+                                         (@InheritFun _ _ _
+                                         (@ProjSet_inclusive T)
+                                         (PRODI_fun (t_nm T n)) (@xx T n)))
+                                    ( (mcone C n) d))  ; first by [].
     rewrite -> Y.
     apply Ole_trans with (y:=(kleisli (eta << InheritFun (@ProjSet_inclusive T) (PRODI_fun (t_nm T n)) (@xx T _)) <<
                               kleisli (PROJ (fun n0 : nat => tobjects T n0 _BOT) n << Forget (@ProjSet_inclusive T)))
@@ -209,7 +233,7 @@ Defined.
 Lemma summ_mon (F G : BiFunctor kcpoBaseCatType) 
    X Y Z W : monotonic (fun p => [|kleisli (eta << in1) << (morph F X Y Z W p : (ob F X Z) =-> (ob F Y W)),
                       kleisli (eta << in2) << (morph G X Y Z W p : (ob G X Z) =-> (ob G Y W))|]).
-move => p p' l. simpl.
+move => F G X Y Z W. move => p p' l. simpl.
 unfold sum_fun. simpl. unfold in1. simpl. unfold in2. simpl.
 move => x. simpl. do 2 rewrite -> SUM_fun_simpl. case: x.
 - move => s. simpl. by rewrite -> l.
@@ -219,7 +243,7 @@ Qed.
 Definition summ (F G : BiFunctor kcpoBaseCatType) X Y Z W := Eval hnf in mk_fmono (@summ_mon F G X Y Z W).
 
 Lemma sumc (F G : BiFunctor kcpoBaseCatType) X Y Z W : continuous (@summ F G X Y Z W).
-move => c. simpl. unfold sum_fun. simpl. move => x. simpl. rewrite -> SUM_fun_simpl. simpl.
+move => F G X Y Z W c. simpl. unfold sum_fun. simpl. move => x. simpl. rewrite -> SUM_fun_simpl. simpl.
 case:x ; simpl => s.
 - do 2 rewrite lub_comp_eq. simpl. apply lub_le_compat => i. simpl. unfold sum_fun. simpl. by rewrite SUM_fun_simpl.
 - do 2 rewrite lub_comp_eq. simpl. apply lub_le_compat => i. simpl. unfold sum_fun. simpl. by rewrite SUM_fun_simpl.
@@ -233,15 +257,15 @@ by [].
 Qed.
 
 Definition biSum (F G : BiFunctor kcpoBaseCatType) : BiFunctor kcpoBaseCatType.
-exists (fun X Y => (ob F X Y) + (ob G X Y)) (fun X Y Z W => @sum_func F G X Y Z W).
+move => F G. exists (fun X Y => (ob F X Y) + (ob G X Y)) (fun X Y Z W => @sum_func F G X Y Z W).
 move => T0 T1 T2 T3 T4 T5 f g h k. simpl.
 apply: (@sum_unique cpoSumCatType).
 - rewrite sum_fun_fst. rewrite {2} / Category.comp. simpl. rewrite <- comp_assoc.
-  rewrite sum_fun_fst. rewrite comp_assoc. rewrite <- kleisli_comp2. rewrite sum_fun_fst.
+  rewrite sum_fun_fst. rewrite comp_assoc. setoid_rewrite <- kleisli_comp2. rewrite sum_fun_fst.
   rewrite <- (comp_eq_compat (tset_refl (kleisli (eta << in1))) (@morph_comp _ F T0 T1 T2 T3 T4 T5 f g h k)).
   rewrite {6} /Category.comp. simpl. rewrite comp_assoc. by rewrite kleisli_comp.
 - rewrite sum_fun_snd. rewrite {2} / Category.comp. simpl. rewrite <- comp_assoc.
-  rewrite sum_fun_snd. rewrite comp_assoc. rewrite <- kleisli_comp2. rewrite sum_fun_snd.
+  rewrite sum_fun_snd. rewrite comp_assoc. setoid_rewrite <- kleisli_comp2. rewrite sum_fun_snd.
   rewrite <- (comp_eq_compat (tset_refl (kleisli (eta << in2))) (@morph_comp _ G T0 T1 T2 T3 T4 T5 f g h k)).
   rewrite {6} /Category.comp. simpl. rewrite comp_assoc. by rewrite kleisli_comp.
 - move => T0 T1. simpl. apply: (@sum_unique cpoSumCatType).
@@ -251,10 +275,14 @@ apply: (@sum_unique cpoSumCatType).
     by rewrite kleisli_eta_com.
 Defined.
 
-Lemma bifunm
-   X Y Z W : monotonic (fun (p:@cppoMorph kcpoBaseCatType Y X * @cppoMorph kcpoBaseCatType Z W) => 
-  eta << (exp_fun (CCOMP _ _ _ :cpoCatType _ _) (kleisli (snd p) : cpoCatType _ _)) << (exp_fun ((CCOMP _ _ _) << SWAP) (fst p)) << KLEISLI).
-move => p p' l f.
+Lemma bifunm X Y Z W :
+  monotonic (fun (p:@cppoMorph kcpoBaseCatType Y X *
+                  @cppoMorph kcpoBaseCatType Z W) => 
+               eta << (exp_fun (CCOMP _ _ _ :cpoCatType _ _)
+                               (kleisli (snd p) : cpoCatType _ _))
+                   << (exp_fun ((CCOMP _ _ _) << SWAP) (fst p)) << KLEISLI).
+  move => X Y Z W p p' l f.
+  
 simpl. apply: DLle_leVal. case: l => l l'. rewrite l. by rewrite -> (kleisli_le_compat l').
 Qed.
 
@@ -268,7 +296,7 @@ Qed.
 
 
 Lemma bifunc X Y Z W : continuous (mk_fmono (@bifunm X Y Z W)).
-move => c x. simpl.
+move => X Y Z W. move => c x. simpl.
  apply Ole_trans with (y:=eta (((KLEISLI (lub (pi2 << (c:natO =-> _))):cpoCatType _ _) <<
       exp_fun (CCOMP _ _ (_ _BOT):cpoCatType _ _)
         (kleisli x) (lub (pi1 << (c:natO =-> _)))))) ; first by [].
@@ -305,8 +333,8 @@ by [].
 by [].
 Defined.
 
-Definition biConst (D:kcpoBaseCatType) : BiFunctor kcpoBaseCatType.
-exists (fun (X Y:kcpoBaseCatType) => D) (fun (X Y Z W:kcpoBaseCatType) => const _ eta).
+Definition biConst (X:kcpoBaseCatType) : BiFunctor kcpoBaseCatType.
+move => D. exists (fun (X Y:kcpoBaseCatType) => D) (fun (X Y Z W:kcpoBaseCatType) => const _ eta).
 move => T0 T1 T2 T3 T4 T5 f g h k. simpl. unfold Category.comp. simpl.
 rewrite kleisli_unit. by rewrite comp_idL.
 move => T0 T1. by [].
@@ -334,11 +362,11 @@ by simpl.
 Qed.
 
 Lemma morph1 X Y Z W f g x : morph FS X Y Z W (f,g) (INL _ _ x) =-= Val (INL _ _ x).
-simpl. unfold sum_fun. simpl. unlock SUM_fun. simpl. by rewrite kleisliVal.
+move => X Y Z W f g x. simpl. unfold sum_fun. simpl. unlock SUM_fun. simpl. by rewrite kleisliVal.
 Qed.
 
 Lemma morph2 X Y Z W f g x : morph FS X Y Z W (f,g) (INR _ _ x) =-= Val (INR _ _ (kleisli g << (kleisli x << f))).
-simpl. unfold sum_fun. simpl. unlock SUM_fun. simpl; by rewrite kleisliVal.
+move => X Y Z W f g x. simpl. unfold sum_fun. simpl. unlock SUM_fun. simpl; by rewrite kleisliVal.
 Qed.
 
 (*=Delta *)
@@ -346,8 +374,7 @@ Definition delta : (DInf -=> DInf _BOT) =-> (DInf -=> DInf _BOT) := delta kcpoLi
 (*=End *)
 
 Lemma eta_mono X Y (f g : X =-> Y) : eta << f =-= eta << g -> f =-= g.
-move => A. 
-apply: fmon_eq_intro => x.
+move => X Y f g A. apply: fmon_eq_intro => x.
 have A':=fmon_eq_elim A x. by apply (vinj A').
 Qed.
 
@@ -393,6 +420,7 @@ Lemma delta_simpl (e:DInf =-> DInf _BOT) : delta e =-=
      ((exp_fun
         ((CCOMP DInf _ (DInf _BOT)) <<
          SWAP) e : cpoCatType _ _) << KLEISLI))) |]) << Unroll.
+move => e.
 rewrite (@delta_simpl _ kcpoLimit FS leftss e).
 fold Fold. fold Unfold. fold DInf. simpl. rewrite <- comp_assoc.
  rewrite {1 2} /Category.comp. simpl. have A:eta << Unroll =-= Unfold by apply totalL_eta.

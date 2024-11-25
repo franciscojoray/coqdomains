@@ -2,9 +2,14 @@
  * NSetoid.v                                                                      *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Export Categories.
 
@@ -30,32 +35,29 @@ Record mixin_of (f:O1 -> O2) := Mixin { ext :> setoid_respect f}.
 
 Notation class_of := mixin_of (only parsing).
 
-Section ClassDef.
-Structure type : Type := Pack {sort : O1 -> O2; _ : class_of sort; _ : O1 -> O2}.
-Local Coercion sort : type >-> Funclass.
+Structure type : Type := Pack {sort :> O1 -> O2; _ : class_of sort; _ : O1 -> O2}.
 Definition class cT := let: Pack _ c _ := cT return class_of cT in c.
 Definition unpack K (k : forall T (c : class_of T), K T c) cT :=
   let: Pack T c _ := cT return K _ (class cT) in k _ c.
 Definition repack cT : _ -> Type -> type := let k T c p := p c in unpack k cT.
 Definition pack f (c:class_of f) := @Pack f c f.
-End ClassDef.
+
 End fset.
-Module Import Exports.
-Coercion sort : type >-> Funclass.
-Notation fset := type.
-Notation fsetMixin := Mixin.
-Notation fsetType := pack.
-End Exports.
+
 End FSet.
-Export FSet.Exports.
+
+Notation fset := FSet.type.
+Notation fsetMixin := FSet.Mixin.
+Notation fsetType := FSet.pack.
 
 Lemma frespect (S S':setoidType) (f:fset S S') : setoid_respect f.
-case:f => f. case. move => a s. by apply a.
+move => S S'. case. move => f. case. move => a s. by apply a.
 Qed.
 
 Hint Resolve frespect.
 
 Lemma fset_setoidAxiom (T T' : setoidType) : Setoid.axiom (fun (f g:fset T T') => forall x:T, (f x) =-= (g x)).
+move => T T'.
 split ; last split.
 - by move => f.
 - move => f g h. simpl. move => X Y e. by apply (tset_trans (X e) (Y e)).
@@ -70,7 +72,7 @@ Definition setmorph_equal (A B: setoidType) : relation (fset A B) :=
 
 Definition setmorph_equal_equivalence (A B: setoidType): Equivalence
 (@setmorph_equal A B).
-split.
+intros A B. split.
 - move => x. by apply: tset_refl.
 - move => x y. by apply: tset_sym.
 - move => x y z. by apply: tset_trans.
@@ -91,14 +93,14 @@ Definition mk_fset (O1 O2:setoidType) (f:O1 -> O2) (m:setoid_respect f) : fset O
    Eval hnf in fsetType (mk_fsetM m).
 
 Lemma ScompP S S' S'' (f:fset S' S'') (g:fset S S') : setoid_respect (T:=S) (T':=S'') (fun x : S => f (g x)).
-move => x y e. have a:=frespect g e. by apply (frespect f a).
+move => S S' S'' f g x y e. have a:=frespect g e. by apply (frespect f a).
 Qed.
 
 Definition Scomp S S' S'' (f:fset S' S'') (g:fset S S') : fset S S'' :=
    Eval hnf in  mk_fset (ScompP f g).
 
 Lemma SidP (S:setoidType) : setoid_respect (id : S -> S).
-move => x y X. by apply X.
+move => S x y X. by apply X.
 Qed.
 
 Definition Sid S : (fset S S) := Eval hnf in mk_fset (@SidP S).
@@ -167,7 +169,7 @@ Definition Sfst : prod_setoidType =-> A := Eval hnf in mk_fset Sfst_respect.
 Definition Ssnd : prod_setoidType =-> B := Eval hnf in mk_fset Ssnd_respect.
 
 Lemma prod_fun_respect C (f:C =-> A) (g:C =-> B) : setoid_respect (T:=C) (T':=prod_setoidType) (fun c : C => (f c, g c)).
-move => c c' e. simpl. unlock tset_eq. by split ; [apply (frespect f e) | apply (frespect g e)].
+move => C f g c c' e. simpl. unlock tset_eq. by split ; [apply (frespect f e) | apply (frespect g e)].
 Qed.
 
 Definition Sprod_fun C (f:C =-> A) (g:C =-> B) : C =-> prod_setoidType := Eval hnf in mk_fset (prod_fun_respect f g).
@@ -184,6 +186,7 @@ Definition Sin1 : A =-> sum_setoidType := Eval hnf in mk_fset Sin1_respect.
 Definition Sin2 : B =-> sum_setoidType := Eval hnf in mk_fset Sin2_respect.
 
 Lemma Ssum_fun_respect C (f:A =-> C) (g:B =-> C) : @setoid_respect sum_setoidType C (fun x => match x with inl x => f x | inr x => g x end).
+move => C f g.
 case => x ; case => y => e ; try done ; by apply frespect ; apply e.
 Qed.
 
@@ -240,23 +243,23 @@ Canonical Structure prodI_setoidType := Eval hnf in SetoidType prodI_setoidMixin
 
 Lemma Sproj_respect i : setoid_respect (T:=prodI_setoidType) (T':=P i)
      (fun X : prodI_setoidType => X i).
-move => a b e. simpl. unlock tset_eq in e. by apply (e i).
+move => i a b e. simpl. unlock tset_eq in e. by apply (e i).
 Qed.
 
 Definition Sproj i : prodI_setoidType =-> P i := Eval hnf in mk_fset (Sproj_respect i).
 
 Lemma SprodI_fun_respect C (f:forall i, C =-> P i) : setoid_respect (T:=C) (T':=prodI_setoidType) (fun (c : C) (i : I) => f i c).
-move => c c' e. simpl. unlock tset_eq. by move => i ; apply (frespect (f i) e).
+move => C f c c' e. simpl. unlock tset_eq. by move => i ; apply (frespect (f i) e).
 Qed.
 
 Definition SprodI_fun C (f:forall i, C =-> P i) : C =-> prodI_setoidType := Eval hnf in mk_fset (SprodI_fun_respect f).
 
 Lemma SprodI_fun_proj C (f:forall i, C =-> P i) i : Scomp (Sproj i) (SprodI_fun f) =-= f i.
-by unlock tset_eq ; simpl.
+move => C f i. by unlock tset_eq ; simpl.
 Qed.
 
 Lemma SprodI_fun_unique C (f:forall i, C =-> P i) (h:C =-> prodI_setoidType) : (forall i, Scomp (Sproj i) h =-= f i) -> h =-= SprodI_fun f.
-move => X. unlock tset_eq. move => x. unlock tset_eq. move => i. unlock tset_eq in X. apply (X i x).
+move => C f h X. unlock tset_eq. move => x. unlock tset_eq. move => i. unlock tset_eq in X. apply (X i x).
 Qed.
 
 End SetoidIProducts.
@@ -268,13 +271,13 @@ by move => x y e x' y' e'.
 Qed.
 
 Lemma spair_respect (A B : setoidType) (x:A) : setoid_respect (fun y:B => (x,y)).
-move => y y' e. by split.
+move => A B x y y' e. by split.
 Qed.
 
 Definition spair (A B : setoidType) (x:A) : B =-> A * B := Eval hnf in mk_fset (spair_respect x).
 
 Lemma scurry_respect (A B C : setoidType) (f:A * B =-> C) : setoid_respect (fun x => f << spair _ x).
-move => x x' e y. simpl. by rewrite -> e.
+move => A B C f x x' e y. simpl. by rewrite -> e.
 Qed.
 
 Definition scurry (A B C : setoidType) (f:A * B =-> C) : A =-> (fset_setoidType B C) := Eval hnf in mk_fset (scurry_respect f).
@@ -285,7 +288,7 @@ Definition setoid_respect2 (S S' S'' : setoidType) (f:S -> S' -> S'') :=
 Lemma setoid2_morphP (S S' S'' : setoidType) (f:S -> S' -> S'') (C:setoid_respect2 f) :
    setoid_respect (T:=S) (T':=S' =-> S'')
      (fun x : S => FSet.Pack (FSet.Mixin (proj2 C x)) (f x)).
-move => x y E. unfold tset_eq. simpl. move => s'. apply (proj1 C s' _ _ E).
+move => S S' S'' f C x y E. unfold tset_eq. simpl. move => s'. apply (proj1 C s' _ _ E).
 Qed.
 
 Definition setoid2_morph (S S' S'' : setoidType) (f:S -> S' -> S'') (C:setoid_respect2 f) :
@@ -294,13 +297,13 @@ Definition setoid2_morph (S S' S'' : setoidType) (f:S -> S' -> S'') (C:setoid_re
 Definition Sprod_map (A B C D:setoidType) (f:A =-> C) (g:B =-> D) := <| f << pi1, g << pi2 |>.
 
 Lemma ev_respect B A : setoid_respect (fun (p:(fset_setoidType B A) * B) => fst p (snd p)).
-case => f b. case => f' b'. simpl.
+move => B A. case => f b. case => f' b'. simpl.
 case ; simpl. move => e e'. rewrite -> e. by rewrite -> e'.
 Qed.
 
 Definition Sev B A : (fset_setoidType B A) * B =-> A := Eval hnf in mk_fset (@ev_respect B A).
 
-Implicit Arguments Sev [A B].
+Arguments Sev [A B] : rename.
 
 Lemma setoidExpAxiom : @CatExp.axiom _ fset_setoidType (@Sev) (@scurry).
 move => X Y Z h. split ; first by case.
@@ -311,7 +314,7 @@ Canonical Structure setoidExpMixin := expCatMixin setoidExpAxiom.
 Canonical Structure setoidExpCat := Eval hnf in expCatType setoidExpMixin.
 
 Lemma const_respect (M M':setoidType) (x:M') : setoid_respect (fun _ : M => x).
-by [].
+by move => M M' x y y'.
 Qed.
 
 Definition sconst (M M':setoidType) (x:M') : M =-> M' := Eval hnf in mk_fset (const_respect x).
@@ -342,11 +345,11 @@ move => C h h'. by case.
 Qed.
 
 Lemma SZero_initial_unique D (f g : emp_setoidType =-> D) : f =-= g.
-by move => x.
+intros D f g. by move => x.
 Qed.
 
 Lemma SZero_respect (D:setoidType) : setoid_respect (fun (x:Empty) => match x with end : D).
-by [].
+move => D. by [].
 Qed.
 
 Definition SZero_initial D : emp_setoidType =-> D := Eval hnf in mk_fset (SZero_respect D).
@@ -374,14 +377,14 @@ Qed.
 Definition Sforget : sub_setoidType =-> S := Eval hnf in mk_fset forget_respect.
 
 Lemma InheretFun_respect (N : setoidType) (f:N =-> S) (c:(forall n, P (f n))) : setoid_respect (fun n => exist (fun x => P x) (f n) (c n)).
-move => n n' e. simpl. by apply (frespect f e).
+move => N f c. move => n n' e. simpl. by apply (frespect f e).
 Qed.
 
 Definition sInheritFun (N : setoidType) (f:N =-> S) (c:forall n, P (f n)) : 
   N =-> sub_setoidType := Eval hnf in mk_fset (InheretFun_respect c).
 
 Lemma Sforget_mono M (f:M =-> sub_setoidType) g : Sforget << f =-= Sforget << g -> f =-= g.
-move => C x. specialize (C x). case_eq (f x). move => fx Pf. case_eq (g x). move => gx Pg.
+move => M f g C x. specialize (C x). case_eq (f x). move => fx Pf. case_eq (g x). move => gx Pg.
 move => e e'. have ee:(Sforget (f x) =-= Sforget (g x)) by []. rewrite e in ee. rewrite e' in ee. simpl in ee.
 apply ee.
 Qed.
@@ -406,17 +409,18 @@ Canonical Structure option_setoidType := Eval hnf in SetoidType option_setoidMix
 
 End Option.
 
-Arguments Scope fset_setoidType [S_scope S_scope].
+Arguments  fset_setoidType [S_scope ] : rename.
 
 Notation "'Option'" := option_setoidType : S_scope.
 
 Lemma some_respect (S:setoidType) : setoid_respect (@Some S).
-by [].
+move => S. by [].
 Qed.
 
 Definition Ssome (S:setoidType) : S =-> Option S := Eval hnf in mk_fset (@some_respect S).
 
 Lemma sbind_respect (S S':setoidType) (f:S =-> Option S') : setoid_respect (fun x => match x with None => None | Some x => f x end).
+move => S S' f.
 case ; last by case.
 move => x. case ; last by []. move => y e. apply (frespect f). by apply e.
 Qed.
@@ -425,6 +429,7 @@ Definition Soptionbind (S S':setoidType) (f:S =-> Option S') : Option S =-> Opti
   Eval hnf in mk_fset (sbind_respect f).
 
 Lemma discrete_setoidAxiom (T:Type) : Setoid.axiom (fun x y : T => x = y).
+move => T.
 split ; first by [].
 split ; first by apply: trans_equal.
 by apply:sym_equal.
@@ -434,7 +439,7 @@ Definition discrete_setoidMixin T := SetoidMixin (discrete_setoidAxiom T).
 Definition discrete_setoidType T := Eval hnf in SetoidType (discrete_setoidMixin T).
 
 Lemma setAxiom T : @Setoid.axiom (T -> Prop) (fun X Y => forall x, X x <-> Y x).
-split ; last split.
+move => T. split ; last split.
 - move => a. simpl. by [].
 - move => a. simpl. move => y z A B x. rewrite <- B. by  rewrite <- A.
 - move => a. simpl. move => b A x. by rewrite A.

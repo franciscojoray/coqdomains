@@ -2,9 +2,13 @@
  * typeddensem.v                                                                  *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Export typedlambda.
 Require Import PredomAll.
@@ -50,7 +54,7 @@ Fixpoint SemVar E t (var : Var E t) : SemEnv E =-> SemTy t :=
   end. (*CLEAR*)
 
 Lemma SimpleB_mon (A B :Type) (C:ordType) (op : A -> B -> C:Type) : monotonic (fun p:discrete_ordType A * discrete_ordType B => op (fst p) (snd p)).
-case => x0 y0. case => x1 y1. case ; simpl. move => L L'.
+move => A B C op. case => x0 y0. case => x1 y1. case ; simpl. move => L L'.
 have e:x0 = x1 by []. have e':y0 = y1 by []. rewrite e. by rewrite e'.
 Qed.
 
@@ -59,6 +63,7 @@ Definition SimpleBOpm (A B :Type) (C:ordType) (op : A -> B -> C:Type) : discrete
 
 Lemma SimpleB_cont (A B:Type) (C:cpoType) (op : A -> B -> C:Type) :
    @continuous (discrete_cpoType A * discrete_cpoType B) C (SimpleBOpm op).
+move => A B C op.
 move => c. simpl. apply: (Ole_trans _ (le_lub _ 0)). simpl.
 by [].
 Qed.
@@ -71,7 +76,7 @@ Lemma choose_cont (Y Z: cpoType) (a:Z =-> Y) (b : Z =-> Y) (c:Z =-> (One:cpoType
   (fun y => match c y with inl y' => a x | inr y' => b x end) x =-=
   (ev << <| SUM_Fun << <| exp_fun ((uncurry  (const One a)) << SWAP),
                                   exp_fun ((uncurry (const One b)) << SWAP) |>, c|>) x.
-move => x. simpl. rewrite SUM_fun_simplx. by case_eq (c x) ; case => e.
+move => Y Z a b c x. simpl. rewrite SUM_fun_simplx. by case_eq (c x) ; case => e.
 Qed.
 
 Definition choose (Y Z: cpoType) (a:Z =-> Y) (b : Z =-> Y) (c:Z =-> (One:cpoType) + One) :=
@@ -79,7 +84,7 @@ Definition choose (Y Z: cpoType) (a:Z =-> Y) (b : Z =-> Y) (c:Z =-> (One:cpoType
 
 Lemma choose_comp (Y Z W : cpoType)  (a:Z =-> Y) (b : Z =-> Y) (c:Z =-> (One:cpoType) + One) 
    (h : W =-> Z) : choose a b c << h =-= choose (a << h) (b << h) (c << h).
-by apply: fmon_eq_intro => x.
+move => Y Z W a b c h. by apply: fmon_eq_intro => x.
 Qed.
 
 Add Parametric Morphism (A B:cpoType) : (@choose A B)

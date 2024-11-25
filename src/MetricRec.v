@@ -2,13 +2,18 @@
  * MetricRec.v                                                                    *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
 
 (* Categories enriched over bounded complete ultrametric spaces and solving domain
    equations therein
 *)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 Require Export Categories MetricCore NSetoid.
 
@@ -41,19 +46,13 @@ Record mixin_of (C:catType) := Mixin
    comp_comp : forall X Y Z m m', (comp X Y Z (m,m'):C _ _) =-= m << m' }.
 (*=End *)
 
-Section ClassDef.
 Record class_of (T:Type) (M:T -> T -> setoidType) : Type := 
-  Class { base : Category.class_of M;
-          ext: mixin_of (Category.Pack base T) }.
-Local Coercion base : class_of >-> Category.class_of.
-Local Coercion ext : class_of >-> mixin_of.
+  Class { base :> Category.class_of M;
+          ext:> mixin_of (Category.Pack base T) }.
 
-Definition base2 (T:Type) (M:T -> T -> setoidType) (c:class_of M) := CatTerminal.Class c.
-Local Coercion base2 : class_of >-> CatTerminal.class_of.
+Coercion base2 (T:Type) (M:T -> T -> setoidType) (c:class_of M) := CatTerminal.Class c.
 
-Structure cat : Type := Pack {object : Type; morph : object -> object -> setoidType ; _ : class_of morph; _ : Type}.
-Local Coercion object : cat >-> Sortclass.
-Local Coercion morph : cat >-> Funclass.
+Structure cat : Type := Pack {object :> Type; morph :> object -> object -> setoidType ; _ : class_of morph; _ : Type}.
 Definition class cT := let: Pack _ _ c _ := cT return class_of (@morph cT) in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
@@ -61,35 +60,28 @@ Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in Category.unpack k.
 
-Definition terminalCat (cT:cat) : terminalCat := CatTerminal.Pack (class cT) cT.
+Coercion terminalCat (cT:cat) : terminalCat := CatTerminal.Pack (class cT) cT.
 Definition catType (cT:cat) : catType := Category.Pack (class cT) cT.
 Definition metricType (cT:cat) (X Y:cT) : metricType := Metric.Pack (Metric.Class (metric (class cT) X Y)) (cT X Y).
 Definition cmetricType (cT:cat) (X Y:cT) : cmetricType := CMetric.Pack (CMetric.Class (cmetric (class cT) X Y)) (cT X Y).
-End ClassDef.
-Module Import Exports.
-Coercion terminalCat : cat >-> CatTerminal.cat.
-Coercion base : class_of >-> Category.class_of.
-Coercion ext : class_of >-> mixin_of.
-Coercion object : cat >-> Sortclass.
-Coercion morph : cat >-> Funclass.
-Canonical Structure terminalCat.
-Canonical Structure catType.
-Canonical Structure metricType.
-Canonical Structure cmetricType.
 
-Notation cmetricMorph := cmetricType.
-Notation cmetricECat := cat.
-Notation CmetricECatMixin := Mixin.
-Notation CmetricECatType := pack.
-End Exports.
 End BaseCat.
-Export BaseCat.Exports.
+
+Canonical Structure BaseCat.terminalCat.
+Canonical Structure BaseCat.catType.
+Canonical Structure BaseCat.metricType.
+Canonical Structure BaseCat.cmetricType.
+
+Notation cmetricMorph := BaseCat.cmetricType.
+Notation cmetricECat := BaseCat.cat.
+Notation CmetricECatMixin := BaseCat.Mixin.
+Notation CmetricECatType := BaseCat.pack.
 
 Definition ccomp (cT:cmetricECat) (X Y Z : cT) : cmetricMorph Y Z * cmetricMorph X Y =-> cmetricMorph X Z :=
    BaseCat.comp (BaseCat.class cT) X Y Z.
 
 Lemma ccomp_eq (cT:cmetricECat) (X Y Z : cT) (f : cT Y Z) (f' : cT X Y) : ccomp X Y Z (f,f') =-= f << f'.
-apply (@BaseCat.comp_comp cT (BaseCat.class cT) X Y Z f f').
+move => cT X Y Z f f'. apply (@BaseCat.comp_comp cT (BaseCat.class cT) X Y Z f f').
 Qed.
 
 Section Msolution.
@@ -177,22 +169,21 @@ Section Tower.
 Variable DTower : Tower.
 
 Lemma lt_gt_dec n m : (n < m) + (m = n) + (m < n).
-case: (ltngtP m n) => e.
-by right.
+move => m n. case: (ltngtP m n) => e.
 left. by left.
-left. by right.
+by right. left. by right.
 Qed.
 
 Definition Diter_coercion n m (Eq:n = m) : M (tobjects DTower n) (tobjects DTower m).
-rewrite Eq.  by apply: Id.
+intros n m Eq. rewrite Eq.  by apply: Id.
 Defined.
 
 Lemma leqI m n : (m <= n)%N = false -> n <= m.
-move => I. have t:=(leq_total m n). rewrite I in t. by apply t.
+move => m n I. have t:=(leq_total m n). rewrite I in t. by apply t.
 Qed.
 
 Lemma lt_subK n m : m < n -> n = (n - m + m)%N.
-move => l. apply sym_eq. apply subnK. have x:= (leqnSn m). by apply (leq_trans x l).
+move => n m l. apply sym_eq. apply subnK. have x:= (leqnSn m). by apply (leq_trans x l).
 Qed.
 
 Fixpoint Projection_nm m (n:nat) : (tobjects DTower (n+m)) =-> (tobjects DTower m) :=
@@ -251,30 +242,31 @@ repeat (rewrite Diter_coercion_simpl). by rewrite -> comp_idL.
 Qed.
 
 Lemma Diter_coercion_eq n m (e e': n = m) : Diter_coercion e =-= Diter_coercion e'.
-by rewrite (eq_irrelevance e e').
+move => n m e e'. by rewrite (eq_irrelevance e e').
 Qed.
 
 Lemma lt_gt_dec_lt n m : n < m -> exists e, lt_gt_dec n m = inl _ (inl _ e).
-move => e. case_eq (lt_gt_dec n m) ; first case.
+move => n m e. case_eq (lt_gt_dec n m) ; first case.
 - move => i _. by exists i.
 - move => f. rewrite f in e. by rewrite ltnn in e.
 - move => f. have a:=leq_trans (leqnSn _) f. have Fx:=leq_ltn_trans a e. by rewrite ltnn in Fx.
 Qed.
 
 Lemma lt_gt_dec_gt n m : m < n -> exists e, lt_gt_dec n m = (inr _ e).
-move => e. case_eq (lt_gt_dec n m) ; first case.
+move => n m e. case_eq (lt_gt_dec n m) ; first case.
 - move => i _. have a:=leq_trans (leqnSn _) i. have Fx:=leq_ltn_trans a e. by rewrite ltnn in Fx.
 - move => f. rewrite f in e. by rewrite ltnn in e.
 - move => i _. by exists i.
 Qed.
 
 Lemma lt_gt_dec_eq n m : forall e : m = n, lt_gt_dec n m = (inl _ (inr _ e)).
-move => e. generalize e. rewrite e. clear e m. move => e. case_eq (lt_gt_dec n n) ; first case.
+move => n m e. generalize e. rewrite e. clear e m. move => e. case_eq (lt_gt_dec n n) ; first case.
 - move => i _. have f:=i. by rewrite ltnn in f.
 - move => f _. by rewrite (eq_irrelevance e f).
 - move => i _. have f:=i. by rewrite ltnn in f.
 Qed.
 
+(** updated for ssreflect 1.5 *)
 Lemma t_nmProjection: forall n m, t_nm n m =-= tmorphisms DTower m << t_nm n (S m).
 move => n m. unfold t_nm. case (lt_gt_dec m n) ; first case.
 - case (lt_gt_dec m.+1 n) ; first case.
@@ -286,9 +278,8 @@ move => n m. unfold t_nm. case (lt_gt_dec m n) ; first case.
     rewrite <- comp_assoc. rewrite Diter_coercion_comp.
     have P:=(trans_equal (lt_subK l) XX). have Q:=(lt_subK l').
     rewrite -> (eq_irrelevance _ P). rewrite -> (eq_irrelevance _ Q).
-    generalize P.
-    have ee:(n - m).-1 = (n - m.+1) by rewrite subnS.
-    rewrite <- ee. clear ee P. have e:0 < n - m by rewrite subn_gt0.
+    generalize P. have e:= (subnSK l'). have ee:(n - m).-1 = (n - m.+1). by rewrite <- e.
+    rewrite <- ee. clear ee e P. have e:0 < n - m. rewrite ltn_subRL. by rewrite addn0.
     move => P.  have PP:n = ((n - m).-1.+1 + m)%N. rewrite (ltn_predK e). apply Q.
     rewrite (eq_irrelevance P PP). move: PP. rewrite (ltn_predK e). clear. move => PP.
     by rewrite (eq_irrelevance Q PP).
@@ -318,8 +309,9 @@ intros n.
 unfold t_nm. rewrite (lt_gt_dec_eq (refl_equal n)). by rewrite Diter_coercion_simpl.
 Qed.
 
+(** updated forssreflect 1.5 *)
 Lemma t_nmProjection2 n m : (m <= n) % nat -> t_nm (S n) m =-= (t_nm n m) << tmorphisms DTower n.
-move => nm.
+move => n m nm.
 assert (exists x, n - m = x) as X by (exists (n - m) ; auto).
 destruct X as [x X]. elim: x n m X nm.
 - move => n m E EE. have e:=eqn_leq n m. rewrite EE in e. have l:(n <= m)%N. unfold leq. by rewrite E.
@@ -350,6 +342,7 @@ destruct X as [x X]. elim: x n m X nm.
   + move => f. have lx:=leq_trans f ll. by rewrite ltnn in lx.
 Qed.
 
+(** updated for ssreflect 1.5 *)
 Lemma t_nmEmbedding: forall n i, t_nm n i =-= (t_nm (S n) i) << tmorphismsI DTower n.
 intros n m. unfold t_nm. case (lt_gt_dec m n) ; first case.
 - move => i. have l:=leq_trans i (leqnSn _). destruct (lt_gt_dec_lt l) as [p A]. rewrite A. clear A l.
@@ -379,8 +372,8 @@ intros n m. unfold t_nm. case (lt_gt_dec m n) ; first case.
     rewrite Diter_coercion_simpl in Y. rewrite -> comp_idL in Y. rewrite <- Y.
     rewrite comp_assoc. rewrite Diter_coercion_comp.
     have ee:=(trans_equal XX (sym_eq (lt_subK l))). rewrite -> (eq_irrelevance _ ee).
-    clear XX X Y. have e:m - n.+1 = (m - n).-1 by rewrite subnS.
-    move: ee. rewrite -> e. have ll:0 < (m - n) by rewrite subn_gt0.
+    clear XX X Y. have e:m - n.+1 = (m - n).-1. by rewrite <- (subnSK l').
+    move: ee. rewrite -> e. have ll:0 < (m - n). rewrite ltn_subRL. by rewrite addn0.
     move => Q.
     have PP:((m - n).-1.+1 + n)%N = m. rewrite -> (ltn_predK ll). by rewrite (sym_eq (lt_subK l')).
     rewrite (eq_irrelevance Q PP). move: PP. have P:=(sym_eq (lt_subK l')). rewrite -> (eq_irrelevance _ P).
@@ -388,6 +381,7 @@ intros n m. unfold t_nm. case (lt_gt_dec m n) ; first case.
     move => P. by rewrite (eq_irrelevance P Q).
 Qed.
 
+(** updated for ssreflect 1.5 *)
 Lemma t_nmEmbedding2: forall n m, (n <= m) % nat -> t_nm n (S m) =-= tmorphismsI DTower m << t_nm n m.
 move => n m nm.
 assert (exists x, m - n = x) as X by (eexists ; apply refl_equal).
@@ -417,8 +411,9 @@ destruct X as [x X]. elim: x n m X nm.
     rewrite -> comp_idR. by rewrite comp_idL.
 Qed.
 
+(** updated for 1.5 *)
 Lemma t_nm_EP i n : (i <= n)%N -> retract (t_nm i n) (t_nm n i).
- have e:exists x, x == n - i by eexists.
+move => i n. have e:exists x, x == n - i by eexists.
 case: e => x e. elim: x i n e.
 - move => i n e l. have ee:i = n. apply anti_leq. rewrite l. simpl. unfold leq. by rewrite <- (eqP e).
   rewrite -> ee. unfold retract. rewrite -> t_nn_ID. by rewrite comp_idL.
@@ -435,18 +430,18 @@ Add Parametric Morphism A B C n : (@Category.comp M A B C)
   as comp_neq_compat.
 move => x y e x' y' e'.
 rewrite <- (ccomp_eq x). rewrite <- (proj2 (Mrefl (ccomp _ _ _ (y,y')) _) (ccomp_eq y y') n).
-apply: fnonexpansive. by split.
+apply fnonexpansive. by split.
 Qed.
 
-Lemma chainPEp (C:CoCone DTower) (C':Cone DTower) : cchainp (fun n : nat => mcocone C n << mcone C' n:cmetricMorph (tcone C') (tcocone C)).
-move => n i j l l'. have X:= tlimitD DTower.
-have A: forall k, n <= k -> (mcocone C n << mcone C' n:cmetricMorph (tcone C') (tcocone C)) = n = (mcocone C k << mcone C' k).
+Lemma chainPEp (C:CoCone DTower) (C':Cone DTower) : cchainp (fun n : nat => mcocone C n << mcone C' n:cmetricMorph C' C).
+move => C C'. move => n i j l l'. have X:= tlimitD DTower.
+have A: forall k, n <= k -> (mcocone C n << mcone C' n:cmetricMorph C' C) = n = (mcocone C k << mcone C' k).
 - elim ; first by move => lx ; rewrite leqn0 in lx ; rewrite (eqP lx).
   move => x IH lx. case_eq (n <= x) => a.
   + specialize (IH a). refine (Mrel_trans IH _).
     have Cx:=comp_eq_compat (mcoconeCom C x) ((mconeCom C' x)).
     simpl in Cx. rewrite <- comp_assoc in Cx. rewrite -> (comp_assoc (mcone C' _)) in Cx.
-    refine (Mrel_trans ((proj2 (@Mrefl (cmetricMorph (tcone C') (tcocone C)) _ _) (tset_sym Cx) n)) _). clear Cx. specialize (X _ _ a).
+    refine (Mrel_trans ((proj2 (@Mrefl (cmetricMorph C' C) _ _) (tset_sym Cx) n)) _). clear Cx. specialize (X _ _ a).
     apply comp_neq_compat ; first by [].
     apply Mrel_trans with (y:=Id << mcone C' x.+1) ; last by apply: (proj2 (Mrefl _ _)) ; apply: comp_idL.
     apply comp_neq_compat ; last by [].
@@ -457,16 +452,17 @@ have A: forall k, n <= k -> (mcocone C n << mcone C' n:cmetricMorph (tcone C') (
 have B:=A _ l. specialize (A _ l'). by apply (Mrel_trans (Msym B) A).
 Qed.
 
-Definition chainPE (C:CoCone DTower) (C':Cone DTower) : cchain (cmetricMorph (tcone C') (tcocone C)) :=
+Definition chainPE (C:CoCone DTower) (C':Cone DTower) : cchain (cmetricMorph C' C) :=
   mk_cchain (@chainPEp C C').
 
 Definition coneN (n:nat) : Cone DTower.
-exists (tobjects DTower n) (t_nm n).
+move => n. exists (tobjects DTower n) (t_nm n).
 move => m. simpl. by rewrite  ->(t_nmProjection n m).
 Defined.
 
+(** updated for ssreflect 1.5 *)
 Lemma coneCom_l (X:Cone DTower) n i : (i <= n)%nat -> mcone X i =-= t_nm n i << mcone X n.
-move => l.
+move => X n i l.
 assert (exists x, n - i = x) as E by (eexists ; auto).
 destruct E as [x E]. elim: x n i l E.
 - move => n i l E. have A:=@anti_leq n i. rewrite l in A.  unfold leq in A. rewrite E in A.
@@ -474,13 +470,14 @@ destruct E as [x E]. elim: x n i l E.
   rewrite t_nn_ID. by rewrite comp_idL.
 - move => x IH n i l E. rewrite -> (comp_eq_compat (t_nmProjection n i) (tset_refl _)).
   rewrite <- comp_assoc. specialize (IH n i.+1). have l0:i < n by rewrite <- subn_gt0 ; rewrite E.
-  have ee:n - i.+1 = x. rewrite subnS. by rewrite E.
+  have ee:n - i.+1 = x. have Y:= subn_gt0 i n. rewrite E in Y. rewrite <- subnSK in E ; first by auto. by rewrite <- Y.
   specialize (IH l0 ee). rewrite <- IH.
   by rewrite -> (mconeCom X i).
 Qed.
 
+(** updated for ssreflect 1.5 *)
 Lemma coconeCom_l (X:CoCone DTower) n i : (n <= i)%nat -> mcocone X n =-= mcocone X i << (t_nm n i).
-move => l.
+intros X n i l.
 assert (exists x, i - n = x) as E by (eexists ; auto).
 destruct E as [x E]. elim: x n i l E.
 - move => n i l E. have A:=@anti_leq n i. rewrite l in A. unfold leq in A. rewrite E in A.
@@ -489,7 +486,7 @@ destruct E as [x E]. elim: x n i l E.
   rewrite -> comp_assoc. specialize (IH n.+1 i).
   have ll:n < i by rewrite <- subn_gt0 ; rewrite E.
   have ee:i - n.+1 = x by have Y:= subn_gt0 n i ; rewrite E in Y ;
-    rewrite subnS ; rewrite E.
+    rewrite <- subnSK in E ; try rewrite <- Y ; by auto.
   rewrite <- (IH ll ee). by apply (tset_sym (mcoconeCom X n)).
 Qed.
 
@@ -523,8 +520,9 @@ unfold retract in IH. rewrite -> (morph_eq_compat F IH IH).
 by rewrite -> morph_id.
 Qed.
 
+(** updated for ssreflect 1.5 *)
 Lemma IP_nonexp i j n : i <= j -> (Injection i << Projection i:cmetricMorph _ _) = n = Id -> (Injection j << Projection j : cmetricMorph _ _) = n = Id.
-move => l.
+move => i j n l.
 have M':exists m, m = j - i by eexists ; apply refl_equal. destruct M' as [m M'].
 elim: m i j l M'.
 - move => i j l e. have E:= (subn_eq0 j i). rewrite e in E. rewrite eqtype.eq_refl in E.
@@ -535,13 +533,13 @@ elim: m i j l M'.
   rewrite subn_gt0 in ll. specialize (IH ll). clear l. move => X. have I:= (IH _ X). clear IH X.
   simpl. refine (Mrel_trans (proj2 (Mrefl (_ : cmetricMorph _ _) _) (morph_comp F _ _ _ _) n) _).
   apply: (Mrel_trans _ (proj2 (Mrefl (_ : cmetricMorph _ _) _) (morph_id F _ _) n)).
-  apply: fnonexpansive. split ; apply I ; rewrite subSn in e ; by auto.
+  apply fnonexpansive. split ; apply I ; rewrite subSn in e ; by auto.
 Qed.
 
 Variable morph_contractive : forall (T0 T1 T2 T3:M), contractive (morph F T0 T1 T2 T3).
 
 Lemma IP_cauchy n i : n <= i -> (Injection i << Projection i:cmetricMorph (Diter i.+1) (Diter i.+1)) = n = Id.
-- elim:n i ; first by [].
+- elim ; first by [].
   move => n IH. case ; first by []. move => i l. specialize (IH i l).
   simpl. refine (Mrel_trans (proj2 (Mrefl (_ : cmetricMorph _ _) _) (morph_comp F _ _ _ _) (S n)) _).
   refine (Mrel_trans _ (proj2 (Mrefl (_ : cmetricMorph _ _) _) (morph_id F _ _) (S n))).
@@ -552,22 +550,23 @@ Definition DTower := mk_tower retract_IP IP_cauchy.
 
 (** printing DInf %\ensuremath{D_\infty}% *)
 (*=DInf *)
-Definition DInf : M := (L DTower).
+Definition DInf : M := tcone (L DTower).
 (*=End *)
 Definition Embeddings n : (tobjects DTower n) =-> DInf := limitExists (L DTower) (coneN DTower n).
 
 Definition Projections n : DInf =-> Diter n := mcone (L DTower) n.
 
 Lemma coCom i : Embeddings i.+1 << Injection i =-= Embeddings i.
-unfold Embeddings.
-rewrite -> (limitUnique (h:=(Embeddings (S i) << Injection _ :  (tcone (coneN DTower i)) =-> DInf))) ; first by [].
-move => m. simpl. unfold Embeddings. rewrite -> comp_assoc. have e:= (limitCom (L DTower) (coneN DTower i.+1) m).
+move => n. unfold Embeddings.
+rewrite -> (limitUnique (h:=(Embeddings (S n) << Injection _ :  (tcone (coneN DTower n)) =-> DInf))) ; first by [].
+move => m. simpl. unfold Embeddings. rewrite -> comp_assoc. have e:= (limitCom (L DTower) (coneN DTower n.+1) m).
 simpl in e. rewrite <- e. by rewrite -> (t_nmEmbedding DTower).
 Qed.
 
 Definition DCoCone : CoCone DTower := @mk_basecocone _ DInf Embeddings coCom.
 
 Lemma retract_EP n : Projections n << Embeddings n =-= Id.
+move => n.
 unfold Projections. unfold Embeddings.
 - rewrite <- (limitCom (L DTower) (coneN DTower n) n). simpl. by rewrite -> t_nn_ID.
 Qed.
@@ -580,7 +579,7 @@ intros i j. have A:= leq_total i j. case_eq (i <= j)%N ; move => X ; rewrite X i
   rewrite -> comp_assoc. rewrite -> (retract_EP i). by rewrite comp_idL.
 Qed.
 
-Definition chainPEc (C:CoCone DTower) : cchain (cmetricMorph DInf (tcocone C)) := chainPE C (L DTower).
+Definition chainPEc (C:CoCone DTower) : cchain (cmetricMorph DInf C) := chainPE C (L DTower).
 
 Lemma EP_id : umet_complete (chainPEc DCoCone) =-= Id.
 have Z:forall n : nat, mcone (L DTower) n =-= mcone (L DTower) n << Id by move => n ; rewrite -> comp_idR.
@@ -621,11 +620,11 @@ by rewrite -> (morph_eq_compat F (mconeCom (L DTower) i) (mcoconeCom DCoCone i))
 Defined.
 
 Lemma Tcomp_nonexpL (T0 T1 T2:M) (f: T0 =-> T1) : nonexpansive (fun x: T1 =-> T2 => x << f:cmetricMorph _ _).
-move => n e e' R. by apply: comp_neq_compat.
+move => T0 T1 T2 f n e e' R. by apply comp_neq_compat.
 Qed.
 
 Lemma Tcomp_nonexpR (T0 T1 T2:M) (f: T2 =-> T0) : nonexpansive (fun x: T1 =-> T2 => f << x:cmetricMorph _ _).
-move => n e e' R. by apply: comp_neq_compat.
+move => T0 T1 T2 f n e e' R. by apply comp_neq_compat.
 Qed.
 
 Definition FCone : Cone DTower.
@@ -638,12 +637,13 @@ Defined.
 Definition chainFPE (C:CoCone DTower) := chainPE C FCone.
 
 Lemma subS_leq j i m : j.+1 - i == m.+1 -> i <= j.
-move => X. have a:=subn_gt0 i (j.+1). have x:=ltn0Sn m.
+move => j i m X. have a:=subn_gt0 i (j.+1). have x:=ltn0Sn m.
 rewrite <- (eqP X) in x. rewrite a in x. by [].
 Qed.
 
+(** updated for ssreflect 1.5 *)
 Lemma morph_tnm n m : morph F _ _ _ _ (t_nm DTower m n, t_nm DTower n m) =-= t_nm DTower n.+1 m.+1.
-have t:= (leq_total n m). case_eq (n <= m)%N ; move => l ; rewrite l in t.
+move => n m. have t:= (leq_total n m). case_eq (n <= m)%N ; move => l ; rewrite l in t.
 clear t. have M':exists x, m - n == x by eexists ; by []. destruct M' as [x M'].
 elim: x m n l M'.
 - move => j i l e. rewrite subn_eq0 in e.

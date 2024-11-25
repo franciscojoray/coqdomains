@@ -2,9 +2,14 @@
  * PredomSum.v                                                                    *
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
- * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * July 2010                                                                      *
+ * Build with Coq 8.2pl1 plus SSREFLECT                                           *
  **********************************************************************************)
+
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
 
 
 (*==========================================================================
@@ -45,7 +50,7 @@ Qed.
 Definition Inr : O2 =-> sum_ordType := Eval hnf in mk_fmono inr_mono.
 
 Lemma sum_fun_mono (O3:ordType) (f:O1 =-> O3) (g:O2 =-> O3) : monotonic (fun x => match x with inl x => f x | inr y => g y end).
-by case => x ; case => y ; try done ; move => X ; apply fmonotonic.
+move => O3 f g. by case => x ; case => y ; try done ; move => X ; apply fmonotonic.
 Qed.
 
 Definition Osum_fun (O3:ordType) (f:O1 =-> O3) (g:O2 =-> O3) := Eval hnf in mk_fmono (sum_fun_mono f g).
@@ -86,7 +91,7 @@ Variable D1 D2 : cpoType.
 
 Lemma sum_left_mono (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inl D2 d}) :
    monotonic (fun x => match c x with | inl y => y | inr _ => projT1 ex end).
-case:ex => x X. simpl.
+move => c. case => x X. simpl.
 move => z z' l. simpl.
 have H:= fmonotonic c (leq0n z). have HH:=fmonotonic c (leq0n z').
 rewrite -> X in H,HH.
@@ -99,7 +104,7 @@ Definition sum_left (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inl D2 d}) : na
 
 Lemma sum_right_mono (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inr D1 d}) :
    monotonic (fun x => match c x with | inr y => y | inl _ => projT1 ex end).
-case:ex => x X. simpl.
+move => c. case => x X. simpl.
 move => z z' l. simpl.
 have H:= fmonotonic c (leq0n z). have HH:=fmonotonic c (leq0n z').
 rewrite -> X in H,HH.
@@ -112,6 +117,7 @@ Definition sum_right (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inr D1 d}) : n
 
 Definition SuminjProof (c:natO =-> sum_ordType D1 D2) (n:nat) :
       {d | c n = inl D2 d} + {d | c n = inr D1 d}.
+move => c n.
 case: (c n) => cn.
 - left. by exists cn.
 - right. by exists cn.
@@ -128,7 +134,7 @@ end.
   ==========================================================================*)
 
 Lemma Dsum_ub (c : natO =-> sum_ordType D1 D2) (n : nat) : c n <= sum_lub c.
-have L:=fmonotonic c (leq0n n).
+move => c n. have L:=fmonotonic c (leq0n n).
 unfold sum_lub. case: (SuminjProof c 0) ; case => c0 e ; rewrite e in L.
 -  move: L. case_eq (c n) ; last by []. move => cn e' L. apply: (Ole_trans _ (le_lub _ n)).
   simpl. by rewrite e'.
@@ -138,7 +144,7 @@ Qed.
 
 Lemma Dsum_lub (c : natO =-> sum_ordType D1 D2) (x : sum_ordType D1 D2) :
    (forall n : natO, c n <= x) -> sum_lub c <= x.
-case x ; clear x ; intros x cn. unfold sum_lub.
+intros c x. case x ; clear x ; intros x cn. unfold sum_lub.
 case (SuminjProof c 0).
 - intros s. assert (lub (sum_left s) <= x).
   apply (lub_le). intros n. specialize (cn n). destruct s as [d c0].
@@ -173,7 +179,7 @@ Infix "+c+" := Dsum (at level 28, left associativity).*)
 Variable D3:cpoType.
 
 Lemma SUM_fun_cont (f:D1 =-> D3) (g:D2 =-> D3) : @continuous sum_cpoType _ (Osum_fun f g).
-intros c. simpl.
+intros f g c. simpl.
 case_eq (lub c).
 - move => ll sl. unfold lub in sl. simpl in sl. unfold sum_lub in sl. destruct (SuminjProof c 0) ; last by [].
   case: sl => e. rewrite <- e. clear ll e. rewrite -> (fcontinuous f (sum_left s)).
@@ -189,7 +195,7 @@ Definition SUM_funX (f:D1 =-> D3) (g:D2 =-> D3) : sum_cpoType =-> D3 := Eval hnf
 Definition SUM_fun f g := locked (SUM_funX f g).
 
 Lemma SUM_fun_simpl f g x : SUM_fun f g x =-= match x with inl x => f x | inr x => g x end.
-unlock SUM_fun. simpl. by case: x.
+move => f g x. unlock SUM_fun. simpl. by case: x.
 Qed.
 
 (** printing [| %\ensuremath{[} *)
@@ -219,13 +225,13 @@ Canonical Structure cpoSumCatMixin := sumCatMixin sumCpoAxiom.
 Canonical Structure cpoSumCatType := Eval hnf in sumCatType cpoSumCatMixin.
 
 Lemma SUM_fun_simplx (X Y Z : cpoType) (f:X =-> Z) (g : Y =-> Z) x : [|f,g|] x =-= match x with inl x => f x | inr x => g x end.
-case:x => x ; unfold sum_fun ; simpl ; by rewrite SUM_fun_simpl.
+move => X Y Z f g. case=> x ; unfold sum_fun ; simpl ; by rewrite SUM_fun_simpl.
 Qed.
 
 Definition getmorph (D E : cpoType) (f:D -=> E) : D =-> E := ev << <| const _ f, Id |>.
 
 Lemma SUM_Fun_mon (D E F:cpoType) : monotonic (fun (P:(D -=> F) * (E -=> F)) => [|getmorph (fst P), getmorph (snd P)|]).
-case => f g. case => f' g'. case ; simpl => l l' x.
+move => D E F. case => f g. case => f' g'. case ; simpl => l l' x.
 unfold sum_fun. simpl. do 2 rewrite SUM_fun_simpl.
 by case x ; [apply l | apply l'].
 Qed.
@@ -234,15 +240,15 @@ Definition SUM_Funm (D E F:cpoType) : fmono_ordType ((D -=> F) * (E -=> F)) (D +
   Eval hnf in mk_fmono (@SUM_Fun_mon D E F).
 
 Lemma SUM_Fon_cont (D E F:cpoType) : continuous (@SUM_Funm D E F).
-move => c. simpl. unfold getmorph. unfold sum_fun. simpl.
+move => D E F c. simpl. unfold getmorph. unfold sum_fun. simpl.
 by case => x ; simpl ; rewrite SUM_fun_simpl ; apply: lub_le_compat => n ; simpl ; rewrite SUM_fun_simpl.
 Qed.
 
 Definition SUM_Fun (D E F:cpoType) : ((D -=> F) * (E -=> F)) =-> (D + E -=> F) := Eval hnf in  mk_fcont (@SUM_Fon_cont D E F).
-Implicit Arguments SUM_Fun [D E F].
+Arguments SUM_Fun [D E F].
 
 Lemma SUM_Fun_simpl (D E F:cpoType) (f:D =-> F) (g:E =-> F) : SUM_Fun (f,g) =-= SUM_fun f g.
-apply: fmon_eq_intro => x. simpl. unfold sum_fun. simpl. by do 2 rewrite SUM_fun_simpl.
+move => D E F f g. apply: fmon_eq_intro => x. simpl. unfold sum_fun. simpl. by do 2 rewrite SUM_fun_simpl.
 Qed.
 
 

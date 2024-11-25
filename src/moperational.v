@@ -8,6 +8,13 @@
 
 (* Operational semantics of the kitchen sink language *)
 
+(** new in 8.4! *)
+Set Automatic Coercions Import.
+Unset Automatic Introduction.
+(** endof new in 8.4 *)
+
+Set Nonrecursive Elimination Schemes.
+
 Require Import Finmap msyntax.
 
 Set Implicit Arguments.
@@ -54,30 +61,27 @@ move => T T' f. apply findom_ext. simpl. case: f. simpl. move => s _. elim:s ; f
 move => t s IH. simpl. rewrite IH. by case: t.
 Qed.
 
-Lemma tpres S e t : 0 |- nil | S |e- e ::: t -> forall n v h h', EV n e h v h' -> stty S h -> dom S =i dom h ->
-  { S':StoreType 0 & {D:((0 |- nil | S' |v- v ::: t) * stty S' h')%type | findom_leq S S' /\ dom S' =i dom h'}}.
+Lemma tpres S e t : 0 |- nil | S |e- e ::: t -> forall n v h h', EV n e h v h' -> stty S h -> dom S == dom h ->
+  { S':StoreType 0 & ((0 |- nil | S' |v- v ::: t) * stty S' h' * is_true (findom_leq S S' && (dom S' == dom h'))) % type}.
 move => S e t T n v h h' ev. elim: n e h v h'/ ev S t T.
 - move => h v S t D Sw ED. exists S. rewrite findom_leq_refl. by split ; first by inversion D.
 - move => h v0 v1 S t D Sw ED. exists S. rewrite findom_leq_refl. split ; last by []. split ; last by [].
   inversion D. inversion X. by inversion H1.
-- move => h v0 v1 S t D Sw ED. exists S. rewrite findom_leq_refl.
-  do 2 split ; last by []. inversion D. inversion X. by inversion H1. by []. by [].
-- move => h op n0 n1 S t D Sw ED. exists S.
-  rewrite findom_leq_refl. do 2 split ; last by []. inversion D. rewrite H0.
-  by apply (TvINT nil S _ (refl_equal _)). by []. by [].
-- move => h v t S t0 D Sw ED. exists S. rewrite findom_leq_refl. do 2 split ; last by []. simpl. inversion D.
-  rewrite H0. clear t0 H0 D. clear e H. inversion X. by inversion H0. by []. by [].
+- move => h v0 v1 S t D Sw ED. exists S. rewrite ED. rewrite findom_leq_refl. do 2 split ; last by []. inversion D. inversion X. by inversion H1.
+- move => h op n0 n1 S t D Sw ED. exists S. rewrite ED. rewrite findom_leq_refl. do 2 split ; last by []. inversion D. rewrite H0.
+  apply (TvINT nil S _ (refl_equal _)).
+- move => h v t S t0 D Sw ED. exists S. rewrite ED. rewrite findom_leq_refl. do 2 split ; last by []. simpl. inversion D.
+  rewrite H0. clear t0 H0 D. clear e H. inversion X. by inversion H0.
 - move => h v l N S t D Sw ED. inversion D. rewrite H0. clear D t H0. clear H e.
   exists (updMap l a S). split. split ; first by apply: (TvLOC _ _ (refl_equal _)) ; by rewrite updMap_simpl.
   move => l0 t0 v0 A B. case_eq (l0 == l) => E.
   + rewrite (eqP E) in A. rewrite updMap_simpl in A. inversion A. rewrite H0 in X. clear a H0 A.
     rewrite (eqP E) in B. rewrite updMap_simpl in B. inversion B. rewrite H0 in X. apply: (LweakV 0 X).
-    by rewrite leq_upd ; last by rewrite ED.
+    by rewrite leq_upd ; last by rewrite (eqP ED).
   + rewrite updMap_simpl2 in A ; last by rewrite E. rewrite updMap_simpl2 in B ; last by rewrite E. 
-    specialize (Sw l0 t0 v0 A B). apply: (LweakV 0 Sw). by rewrite leq_upd ; last by rewrite ED.
-  rewrite <- ED in N. rewrite leq_upd ; last by []. split ; first by []. move => i. do 2 rewrite indomUpdMap.
-  by rewrite ED.
-- move => h v l e S t D Sw ED. exists S. rewrite findom_leq_refl. split ; last by []. split ; last by [].
+    specialize (Sw l0 t0 v0 A B). apply: (LweakV 0 Sw). by rewrite leq_upd ; last by rewrite (eqP ED).
+  rewrite <- (eqP ED) in N. rewrite leq_upd ; last by []. simpl. by apply dom_upd.
+- move => h v l e S t D Sw ED. exists S. rewrite ED. rewrite findom_leq_refl. split ; last by []. split ; last by [].
   inversion D. clear e0 H0. inversion X. clear H l0. inversion H1. rewrite <- H2 in H0. rewrite <- H2. clear t' H1 H2.
   specialize (Sw l t v H0 e). by apply Sw.
 - move => h v l Def S t D Sw ED. exists S. rewrite findom_leq_refl. inversion D. rewrite H0. clear t H0 D. clear e H1.
@@ -87,19 +91,17 @@ move => S e t T n v h h' ev. elim: n e h v h'/ ev S t T.
     rewrite (eqP E) in e0. clear l0 E. inversion X. inversion H1. rewrite <- H3 in H0. rewrite e0 in H0. inversion H0.
     by apply X0.
   + rewrite (updMap_simpl2) in e1 ; last by rewrite E. specialize (Sw l0 t0 v0 e0 e1). by apply Sw.
-  simpl. split ; first by []. move => i. rewrite indomUpdMap. rewrite ED.
-  case_eq ((i:nat_compType) == l) => e ; last by [].
-  rewrite (eqP e). simpl. rewrite findom_indom. by rewrite Def.
+  simpl. by rewrite <- (eqP (findom_dom_upd2 _ Def)).
 - move => h0 n0 e0 v1 h1 n1 e2 v2 h2 ev0 IH0 ev1 IH1 S t D Sw ED.
   inversion D. clear e e' H0 H1 D. specialize (IH0 S t' X Sw ED).
   case: IH0 => S1. case. case => D1 Sw1 P1. specialize (IH1 S1 t).
-  have W0 := LweakE 0 X0 (proj1 P1).
+  have W0 := LweakE 0 X0 (proj1 (andP P1)).
   have ss:=(typing_substE W0 _).
-  specialize (ss [:: v1] nil). have IH := IH1 (ss _) Sw1 (proj2 P1).
-  have b:= (findom_leq_trans (proj1 P1)). case: IH. case ; first by []. simpl. move => j.
+  specialize (ss [:: v1] nil). have IH := IH1 (ss _) Sw1 (proj2 (andP P1)).
+  have b:= (findom_leq_trans (proj1 (andP P1))). case: IH. case ; first by []. simpl. move => j.
     rewrite nth_default ; last by []. simpl. rewrite nth_default ; last by []. by apply TvUNIT.
-  move => S2 ; case => D2 P2. exists S2. rewrite (b _ (proj1 P2)). split. by apply D2. split ; first by [].
-  by apply (proj2 P2).
+  move => S2 ; case => D2 P2. exists S2. rewrite (proj2 (andP P2)). rewrite (b _ (proj1 (andP P2))). simpl.
+  split ; last by []. by apply D2.
 (*- move => h0 n0 t0 t1 e v0 v1 h1 ev0 IH0 S t D Sw ED. apply IH0 ; try by [].
   inversion D. clear rand rator H0 H1. inversion X. clear body H2 t' t'' H H1. inversion H0. rewrite H1 in X, X0.
   clear a H1 H0. rewrite H2 in X. clear D H2 t. apply: (typing_substE X1).
@@ -231,7 +233,7 @@ Qed.
 
 Definition free_varV_eq n := proj1 (@free_var_eq n).
 Definition free_varE_eq n := proj2 (@free_var_eq n).
-
+(** updated for 8.4 : ssreflect names *)
 Lemma free_var_shift n : 
 (forall (v:Value n) l k i l', (forall i', i' \in l' -> k <= i' < k + i) -> free_varV (shiftV k i v) (l' ++ map (fun x => if x < k then x else x + i) l) = free_varV v l) /\
 (forall (v:Exp n) l k i l', (forall i', i' \in l' -> k <= i' < k + i) -> free_varE (shiftE k i v) (l' ++ map (fun x => if x < k then x else x + i) l) = free_varE v l).
@@ -245,7 +247,7 @@ move => k i x y. case_eq (x < k) => L.
   + rewrite ltnNge in L. have LL:=negbFE L. clear L. move => E. have G:=ssrnat.leq_trans LL (leq_addr i x).
     rewrite E in G. have F:=ssrnat.leq_trans A G. by rewrite ltnn in F.
   + move => A'. have A'':x + i == y + i by rewrite A'.
-    rewrite (eqn_addr i x y) in A''. by rewrite (eqP A'').
+    rewrite (eqn_add2r i x y) in A''. by rewrite (eqP A'').
 apply ExpValue_ind => n.
 - move => j l k i l' X. simpl. case_eq (j < k) => L.
   + simpl. rewrite mem_cat. specialize (X j). case_eq (j \in l') => A.
@@ -394,8 +396,10 @@ Lemma negbF_imp (b:bool) : (b -> False) -> b = false.
 case ; last by []. move => A. by specialize (A is_true_true).
 Qed.
 
+(** updated for 8.4 *) 
 Lemma ev_closed n e v h h' : EV n e h v h' -> closedE e -> heap_closed h -> heap_closed h' /\ closedV v.
-move => n e v h h' ev. elim: n e v h h' / ev.
+-move => n_ e_ v_ h_ h'_ ev_. 
+elim ev_.
 - move => h v A B. split ; first by apply B. by apply A.
 - move => h v0 v1 A B. split ; first by []. apply (proj1 (andP A)).
 - move => h v0 v1 A B. split ; first by []. apply (proj2 (andP A)).
