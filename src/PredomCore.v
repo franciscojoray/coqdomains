@@ -6,7 +6,8 @@
  * Build with Coq 8.3pl2 plus SSREFLECT                                           *
  **********************************************************************************)
 
-Require Export ssreflect ssrnat ssrbool eqtype Categories.
+From mathcomp Require Export ssreflect ssrnat ssrbool eqtype.
+Require Export Categories.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -87,7 +88,7 @@ Export PreOrd.Exports.
 (*=End *)
 
 Definition Ole := (fun (O:ordType) => PreOrd.Ole (PreOrd.class O)).
-Implicit Arguments Ole [O].
+Arguments Ole {O}.
 
 Lemma Ole_refl (O:ordType) (x:O) : Ole x x.
 unfold Ole. case:O x. simpl. move => O. case.
@@ -100,10 +101,11 @@ move => le A T x y z L L'.
 by apply (proj2 (A x) y z L L').
 Qed.
 
-Hint Resolve Ole_refl Ole_trans.
+Hint Resolve Ole_refl Ole_trans: core.
 
 (*Hint Extern 2  (Ole (o:=?X1) ?X2 ?X3 ) => simpl Ole.*)
 
+Declare Scope O_scope.
 Bind Scope O_scope with PreOrd.sort.
 Delimit Scope O_scope with PreOrd.
 
@@ -111,7 +113,7 @@ Delimit Scope O_scope with PreOrd.
 Infix "<=" := Ole : O_scope.
 Open Scope O_scope.
 
-Arguments Scope Ole [O_scope _ _].
+Arguments Ole _%_O_scope _ _.
 
 (*=Pointed *)
 Module Pointed.
@@ -150,7 +152,7 @@ Notation pointedType := type.
 Notation PointedMixin := Mixin.
 Notation PointedType := pack.
 Notation PBot := least.
-  Implicit Arguments least [cT].
+  Arguments least {cT}.
 Canonical Structure ordType.
 Canonical Structure setoidType.
 End Exports.
@@ -173,44 +175,44 @@ Definition discrete_ordType T := Eval hnf in OrdType (discrete_ordMixin T).
 
 Lemma Ole_refl_eq : forall  (O:ordType) (x y:O), x = y -> x <= y.
 intros O x y H; rewrite H; auto.
-Save.
+Save Ole_refl_eq.
 
 Hint Resolve Ole_refl_eq.
 
 Lemma Ole_antisym : forall (O:ordType) (x y:O), x <= y -> y <= x -> x =-= y.
 unfold Ole. unfold tset_eq. simpl.
 case. move => T. case. simpl. move => X Y x y l0 l1. by split.
-Save.
-Hint Immediate Ole_antisym.
+Save Ole_antisym.
+Hint Immediate Ole_antisym: core.
 
 Definition Oeq_refl (O:ordType) := @tset_refl O.
 
-Hint Resolve Oeq_refl.
+Hint Resolve Oeq_refl: core.
 
 Lemma Oeq_refl_eq : forall (O:ordType) (x y:O), x=y -> x =-= y.
 intros O x y H; rewrite H; auto.
-Save.
-Hint Resolve Oeq_refl_eq.
+Save Oeq_refl_eq.
+Hint Resolve Oeq_refl_eq: core.
 
 Lemma Oeq_sym : forall (O:ordType) (x y:O), x =-= y -> y =-= x.
 move => O x y X. by apply: tset_sym.
-Save.
+Save Oeq_sym.
 
 Lemma Oeq_le : forall (O:ordType) (x y:O), x =-= y -> x <= y.
 move => O. move => x y. case. move => A B. by apply A.
-Save.
+Save Oeq_le.
 
 Lemma Oeq_le_sym : forall (O:ordType) (x y:O), x =-= y -> y <= x.
 move => O. move => x y. case. move => A B. by apply B.
-Save.
+Save Oeq_le_sym.
 
-Hint Resolve Oeq_le.
-Hint Immediate Oeq_sym Oeq_le_sym.
+Hint Resolve Oeq_le: core.
+Hint Immediate Oeq_sym Oeq_le_sym: core.
 
 Lemma Oeq_trans : forall (O:ordType) (x y z:O), x =-= y -> y =-= z -> x =-= z.
 move => O. apply (@tset_trans O).
-Save.
-Hint Resolve Oeq_trans.
+Save Oeq_trans.
+Hint Resolve Oeq_trans: core.
 
 (** *** Setoid relations *)
 
@@ -235,23 +237,23 @@ firstorder.
 apply Ole_trans with y0.
 assumption.
 intuition.
-Save.
+Save PM_Ole_eq_compat_iff.
 
 Lemma Ole_eq_compat : 
      forall (O : ordType) (x1 x2 : O),
        x1 =-= x2 -> forall x3 x4 : O, x3 =-= x4 -> x1 <= x3 -> x2 <= x4.
 move => O x1 x2 e x3 x4 e'. rewrite -> e. by rewrite -> e'.
-Save.
+Save Ole_eq_compat.
 
 Lemma Ole_eq_right : forall (O : ordType) (x y z: O),
              x <= y -> y =-= z -> x <= z.
 move => O x y z l e. rewrite l. by rewrite e.
-Save.
+Save Ole_eq_right.
 
 Lemma Ole_eq_left : forall (O : ordType) (x y z: O),
              x =-= y -> y <= z -> x <= z.
 move => O x y z e l. rewrite e. by rewrite l.
-Save.
+Save Ole_eq_left.
 
 (** ** Monotonicity *)
 
@@ -287,17 +289,17 @@ Lemma fmonotonic O1 O2 (f:fmono O1 O2) : monotonic f.
 case:f. simpl. move => f. by case.
 Qed.
 
-Hint Resolve fmonotonic.
-Hint Unfold monotonic.
+Hint Resolve fmonotonic: core.
+Hint Unfold monotonic: core.
 
 Definition stable (O1 O2:ordType) (f : O1 -> O2) := forall x y, x =-= y -> f x =-= f y.
-Hint Unfold stable.
+Hint Unfold stable: core.
 
 Lemma monotonic_stable : forall (O1 O2 : ordType) (f:O1 -> O2), 
              monotonic f -> stable f.
 unfold monotonic, stable. move => O0 O1 f X x y e. split ; apply X ; by case e.
-Save.
-Hint Resolve monotonic_stable.
+Save monotonic_stable.
+Hint Resolve monotonic_stable: core.
 
 (*=fmonoOrd *)
 Lemma fmono_axiom (O1 O2:ordType) :
@@ -389,8 +391,8 @@ Open Scope C_scope.
 
 Lemma fmon_stable : forall (O1 O2 : ordType) (f:O1 =-> O2), stable f.
 intros; apply monotonic_stable; auto.
-Save.
-Hint Resolve fmon_stable.
+Save fmon_stable.
+Hint Resolve fmon_stable: core.
 
 Definition mk_fmonoM (O1 O2:ordType) (f:O1 -> O2) (m:monotonic f) := fmonoMixin m.
 Definition mk_fmono (O1 O2:ordType) (f:O1 -> O2) (m:monotonic f) : fmono O1 O2 := Eval hnf in fmonoType (mk_fmonoM m).
@@ -440,13 +442,13 @@ End ordCatProd.
 
 Lemma fmon_eq_intro : forall (O1 O2:ordType) (f g:O1 =-> O2), (forall n, f n =-= g n) -> f =-= g.
 move => O0 O1 f g X. split => x. by apply (proj1 (X x)).  by apply (proj2 (X x)). 
-Save.
+Save fmon_eq_intro.
 Hint Resolve fmon_eq_intro.
 
 Lemma fmon_eq_elim : forall (O1 O2:ordType) (f g:O1 =-> O2), f =-= g ->forall n, f n =-= g n.
 move => O1 O2 f g e n. split ; by [apply (proj1 e) | apply (proj2 e)].
-Save.
-Hint Immediate fmon_eq_elim.
+Save fmon_eq_elim.
+Hint Immediate fmon_eq_elim: core.
 
 Lemma ordProdCatAxiom : @CatProduct.axiom _ prod_ordType (@Fst) (@Snd) Prod_fun.
 move => O0 O1 O2 f g. split. split ; by apply: fmon_eq_intro.
@@ -587,16 +589,16 @@ with signature (@Ole (fmono_ordType natO c) : (natO =-> c) -> (natO =-> c) -> Pr
 as lub_le_compat.
 intros f g H; apply lub_le; intros.
 apply Ole_trans with (g n); auto.
-Save.
-Hint Resolve lub_le_compat.
+Save PM_lub_le_compat.
+Hint Resolve lub_le_compat: core.
 
 Add Parametric Morphism (c:cpoType) : (@lub c) 
 with signature (@tset_eq (natO =-> c) : (natO =-> c) -> (natO =-> c) -> Prop) ++> (@tset_eq c)
 as lub_eq_compat.
 move => f g H. split. simpl. rewrite -> (proj1 H). by apply: Ole_refl.
 rewrite -> (proj2 H). by apply Ole_refl.
-Save.
-Hint Resolve lub_eq_compat.
+Save PM_lub_eq_compat.
+Hint Resolve lub_eq_compat: core.
 
 Lemma lub_mon (D:cpoType) : monotonic (@lub D).
 move => f g l. by rewrite -> l.
@@ -1042,7 +1044,7 @@ Canonical Structure sub_ordType D P := Eval hnf in OrdType (@sub_ordMixin D P).
 
 Definition SubOrde (D:ordType) (P:D -> Prop) (d:D)  (X:P d) : sub_ordType P := exist (fun x => P x) d X.
 
-Implicit Arguments SubOrde [D P].
+Arguments SubOrde {D P}.
 
 Lemma InheritFun_mono D (E:ordType) (Q:E->Prop) (f:D =-> E) (p:forall d, Q (f d)) : monotonic (fun d => @SubOrde E Q (f d) (p d)).
 move => x y lxy. by apply: fmonotonic.
@@ -1051,7 +1053,7 @@ Qed.
 Definition InheritFunm D (E:ordType) (Q:E->Prop) (f:D =-> E) (p:forall d, Q (f d)) :
  D =-> sub_ordType Q := Eval hnf in mk_fmono (InheritFun_mono p).
 
-Implicit Arguments InheritFunm [D E Q].
+Arguments InheritFunm {D E Q}.
 
 Lemma Forget_mono D P : monotonic (fun (O:@sub_ordType D P) => match O with exist x _ => x end).
 case => x px. by case.
@@ -1078,15 +1080,15 @@ Lemma lub_comp_le :
     forall (D1 D2 : cpoType) (f:ordCatType D1 D2) (h : natO =-> D1),  lub (f << h) <= f (lub h).
 intros; apply lub_le; simpl; intros.
 apply (fmonotonic f); auto.
-Save.
-Hint Resolve lub_comp_le.
+Save lub_comp_le.
+Hint Resolve lub_comp_le: core.
 
 Lemma lub_comp_eq :
     forall (D1 D2 : cpoType) (f:cpoCatType D1 D2) (h : natO =-> D1), f (lub h) =-= lub ((f:ordCatType _ _) << h).
 move => D1 D2 f g. apply: Ole_antisym ; last by apply: lub_comp_le.
 rewrite fcontinuous. apply lub_le => n. simpl. by apply: (Ole_trans _ (le_lub _ n)).
-Save.
-Hint Resolve lub_comp_eq.
+Save lub_comp_eq.
+Hint Resolve lub_comp_eq: core.
 
 Lemma mseq_lift_left_mon (O:ordType) (f:natO =-> O) (n:nat) : monotonic (fun i => f (n+i)%N).
 move => x y l. apply: fmonotonic. unfold Ole. simpl. rewrite -> (leq_add2l n x y). by apply l.
@@ -1099,7 +1101,7 @@ move => D f n. apply: Ole_antisym.
 - apply lub_le. move => m. rewrite <- (le_lub _ m). simpl. apply fmonotonic. rewrite natO_le. by rewrite leq_addl.
 - apply lub_le. move => m. by rewrite <- (le_lub _ (n+m)).
 Qed.
-Hint Resolve lub_lift_left.
+Hint Resolve lub_lift_left: core.
 
 Lemma lub_fun_mon (O:ordType) (D:cpoType) (h : natO =-> O -=> D) : monotonic (fun m => lub (fmon_app h m)).
 move => x y l. apply: lub_le_compat => n. simpl. by rewrite -> l.
@@ -1130,7 +1132,7 @@ Lemma fcont_app_continuous :
        forall (O:ordType) (D1 D2:cpoType) (f: O =-> D1 -=> D2) (h:natO =-> D1),
             fcont_app f (lub h) <= lub ((fmon_fcont_shift f:ordCatType _ _) << h).
 move => O D1 D2 f h x. simpl. rewrite (fcontinuous (f x)). by apply lub_le_compat.
-Save.
+Save fcont_app_continuous.
 
 Lemma fmon_diag_mon (O1 O2:ordType)(h:O1 =-> (O1 -=> O2)) : monotonic (fun n => h n n).
 move => x y l. simpl. by rewrite -> l.

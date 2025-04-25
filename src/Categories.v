@@ -32,9 +32,9 @@ Module Setoid.
   Section ClassDef.
   Structure type := Pack {sort; _:class_of sort; _:Type}.
   Local Coercion sort : type >-> Sortclass.
-  Definition class cT := let: Pack _ c _ := cT return class_of cT in c. 
+  Definition class cT := let: Pack c _ := cT return class_of cT in c. 
   Definition unpack K (k : forall T (c : class_of T), K T c) cT :=
-    let: Pack T c _ := cT return K _ (class cT) in k _ c. (*CLEAR*)
+    let: Pack c _ := cT return K _ (class cT) in k _ c. (*CLEAR*)
   Definition repack cT : _ -> Type -> type := let k T c p := p c in unpack k cT. (*CLEARED*)
   Definition pack T c := @Pack T c T.
   End ClassDef.
@@ -51,6 +51,7 @@ Export Setoid.Exports.
 
 Definition tset_eq := fun T => Setoid.set_eq (Setoid.class T). (*CLEAR*)
 
+Declare Scope S_scope.
 Bind Scope S_scope with Setoid.sort.
 Delimit Scope S_scope with SET.
 Open Scope S_scope.
@@ -59,29 +60,29 @@ Open Scope S_scope.
 (*CLEARED*)
 Infix "=-=" := tset_eq (at level 70). (*CLEAR*)
 
-Arguments Scope tset_eq [S_scope _ _].
+Arguments tset_eq _%_S_scope _ _.
 (*CLEARED*)
 Lemma tset_refl (T:setoidType) (x:T) : x =-= x. (*CLEAR*)
 unlock tset_eq. apply (proj1 (Setoid.set_equiv (Setoid.class T)) x).
 Qed.
 
-Arguments Scope tset_refl [S_scope _].
-Hint Resolve tset_refl.
+Arguments tset_refl _%_S_scope _ : rename.
+Hint Resolve tset_refl: core.
 (*CLEARED*)
 Lemma tset_trans (T:setoidType) (x y z:T) : x =-= y -> y =-= z -> x =-= z. (*CLEAR*)
 unlock tset_eq. apply (proj1 (proj2 (Setoid.set_equiv (Setoid.class T))) x y z).
 Qed.
 
-Arguments Scope tset_trans [S_scope _ _ _].
+Arguments tset_trans _%_S_scope _ _ _.
 
-Hint Immediate tset_trans. (*CLEARED*)
+Hint Immediate tset_trans: core. (*CLEARED*)
 Lemma tset_sym (T:setoidType) (x y:T) : x =-= y -> y =-= x. (*CLEAR*)
 unlock tset_eq. apply (proj2 (proj2 (Setoid.set_equiv (Setoid.class T))) x y).
 Qed.
 
-Arguments Scope tset_sym [S_scope _ _].
+Arguments tset_sym _%_S_scope _ _.
 
-Hint Immediate tset_sym. (*CLEARED*)
+Hint Immediate tset_sym: core. (*CLEARED*)
 Add Parametric Relation (T:setoidType) : T (@tset_eq T)
  reflexivity proved by (@tset_refl T) symmetry proved by (@tset_sym T)
  transitivity proved by (@tset_trans T) as tset_eqrel.
@@ -113,18 +114,17 @@ Module Category.
     morph : object -> object -> setoidType ; _:class_of morph; _:Type}.
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
-  Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c. 
+  Definition class cT := let: Pack c _ := cT return class_of cT in c. 
   Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
     (k : forall O (M: O -> O -> setoidType) (c:class_of M), K _ _ c) (cT:cat) :=
-    let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c. (*CLEAR*)
+    let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c. (*CLEAR*)
   Definition repack cT : _ -> Type -> cat := 
                                   let k T M c p := p c in unpack k cT.
   (*CLEARED*)
   Definition pack T M c := @Pack T M c T.
   Definition comp (cT:cat) : forall (A B C:cT),
                 morph B C -> morph A B -> morph A C := tcomp (class cT).
-  Definition id (cT:cat) : forall (A:cT), morph A A := tid (class cT). (*CLEAR*)
-  Implicit Arguments id [cT A].
+  Definition id {cT:cat} : forall {A:cT}, morph A A := tid (class cT). (*CLEAR*)
   (*CLEARED*)
   End ClassDef.
   
@@ -134,7 +134,6 @@ Module Category.
   Notation catType := cat. (*CLEAR*)
   Notation CatMixin := Mixin.
   Notation CatType := pack.
-  Implicit Arguments id [cT A].
   Notation morph := Category.morph.
   Notation object := Category.object.
   End Exports.
@@ -142,17 +141,18 @@ Module Category.
 
 End Category.
 Export Category.Exports. (*CLEAR*)
+Declare Scope C_scope.
 Bind Scope C_scope with Category.object.
 Delimit Scope C_scope with CAT.
 Open Scope C_scope.
 (*CLEARED*)
 Infix "=->" := Category.morph (at level 55, right associativity) (*CLEAR*) : C_scope.
 
-Arguments Scope Category.morph [_ C_scope C_scope].
+Arguments Category.morph _ (_ _)%_C_scope.
 (*CLEARED*)
 Infix "<<" := Category.comp (at level 35) (*CLEAR*) : C_scope.
 
-Arguments Scope Category.comp [_ C_scope C_scope C_scope S_scope S_scope].
+Arguments Category.comp _ (_ _ _)%_C_scope (_ _)%_S_scope.
 (*CLEARED*)
 Notation Id := Category.id. (*CLEAR*)
 Lemma comp_respect (C:catType) (X Y Z : C) (f f' : Y =-> X) (g g' : Z =-> Y) 
@@ -211,10 +211,10 @@ Local Coercion terminal : class_of >-> mixin_of.
 Structure cat : Type := Pack {object; morph : object -> object -> setoidType ; _ : class_of morph; _ : Type}.
 Local Coercion object : cat >-> Sortclass.
 Local Coercion morph : cat >-> Funclass.
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in Category.unpack k.
 Definition catType cT := Category.pack (class cT).
@@ -235,8 +235,7 @@ End Exports.
 End CatTerminal.
 Export CatTerminal.Exports.
 
-Definition terminal (C:terminalCat) : C := CatTerminal.tto (CatTerminal.class C).
-Implicit Arguments terminal [C].
+Definition terminal {C:terminalCat} : C := CatTerminal.tto (CatTerminal.class C).
 
 Notation "'One'" := terminal : C_scope.
 
@@ -267,10 +266,10 @@ Local Coercion initial : class_of >-> mixin_of.
 Structure cat : Type := Pack {object : Type; morph : object -> object -> setoidType ; _ : class_of morph; _ : Type}.
 Local Coercion object : cat >-> Sortclass.
 Local Coercion morph : cat >-> Funclass.
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in Category.unpack k.
 Definition catType cT := Category.pack (class cT).
@@ -292,8 +291,7 @@ End CatInitial.
 
 Export CatInitial.Exports.
 
-Definition initial (C:initialCat) : C := CatInitial.init (CatInitial.class C).
-Implicit Arguments initial [C].
+Definition initial {C:initialCat} : C := CatInitial.init (CatInitial.class C).
 
 Notation "'Zero'" := initial : C_scope.
 
@@ -332,10 +330,10 @@ Module CatProduct.
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
 
-  Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c. (*CLEAR*)
+  Definition class cT := let: Pack c _ := cT return class_of cT in c. (*CLEAR*)
   Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
               (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-    let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+    let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
   Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 (*CLEARED*)
   Definition pack := let k T M c m := Pack (@Class T M c m) T in Category.unpack k.
@@ -358,20 +356,18 @@ Export CatProduct.Exports.
 (*CLEARED*)
 Definition prod (C:prodCat) (A B:C) : C :=
                    (CatProduct.prod (CatProduct.class C) A B).
-Definition pi1 (C:prodCat) (A B:C) : morph (prod A B) A :=
+Definition pi1 {C:prodCat} {A B:C} : morph (prod A B) A :=
                    (CatProduct.pi1 (CatProduct.class C) A B).
-Definition pi2 (C:prodCat) (A B:C) : morph (prod A B) B :=
+Definition pi2 {C:prodCat} {A B:C} : morph (prod A B) B :=
                    (CatProduct.pi2 (CatProduct.class C) A B).
 Definition prod_fun (C:prodCat) (Z A B:C) (f:C Z A) (g:C Z B) :
   morph Z (prod A B) := (CatProduct.prod_ex (CatProduct.class C) f g).
 Infix "*" := prod (*CLEAR*) : C_scope.
-Implicit Arguments pi1 [C A B].
-Implicit Arguments pi2 [C A B]. (*CLEARED*)
 Notation "'<|' f , g '|>'" := (prod_fun f g) (at level 30) (*CLEAR*) : C_scope. (*CLEARED*)
 Notation "f '><' g" := (prod_fun (f << pi1) (g << pi2)) (at level 30) (*CLEAR*) : C_scope.
 (* Notation "'(|' f , g '|)'" := (prod_fun (f << pi1) (g << pi2)) (at level 30) : C_scope.*)
 
-Arguments Scope prod_fun [_ C_scope C_scope C_scope S_scope S_scope].
+Arguments prod_fun _ (_ _ _)%_C_scope (_ _)%_S_scope.
 (*CLEARED*)
 Lemma prod_fun_fst (C:prodCat) (X Y Z:C) (f:Z =-> Y) (g:Z =-> X) :
                                                 pi1 << <|f , g|> =-= f. (*CLEAR*)
@@ -509,10 +505,10 @@ Structure cat : Type := Pack {object; morph : object -> object -> setoidType ; _
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
 
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in Category.unpack k.
 
@@ -535,19 +531,16 @@ Export CatSum.Exports.
 
 
 Definition sum (C:sumCat) (A B:C) : C := (CatSum.sum (CatSum.class C) A B).
-Definition in1 (C:sumCat) (A B:C) : morph A (sum A B) := (CatSum.in1 (CatSum.class C) A B).
-Definition in2 (C:sumCat) (A B:C) : morph B (sum A B) := (CatSum.in2 (CatSum.class C) A B).
+Definition in1 {C:sumCat} {A B:C} : morph A (sum A B) := (CatSum.in1 (CatSum.class C) A B).
+Definition in2 {C:sumCat} {A B:C} : morph B (sum A B) := (CatSum.in2 (CatSum.class C) A B).
 Definition sum_fun (C:sumCat) (Z A B:C) (f:C A Z) (g:C B Z) : morph (sum A B) Z := 
   (CatSum.sum_exists (CatSum.class C) f g).
 
 Infix "+" := sum : C_scope.
 
-Implicit Arguments in1 [C A B].
-Implicit Arguments in2 [C A B].
-
 Notation "'[|' f , g '|]'" := (sum_fun f g) (at level 30) : C_scope.
 
-Arguments Scope sum_fun [_ C_scope C_scope C_scope S_scope S_scope].
+Arguments sum_fun _ (_ _ _)%_C_scope (_ _)%_S_scope.
 
 Lemma sum_fun_fst (C:sumCat) (X Y Z:C) (f:Y =-> Z) (g:X =-> Z) : [|f , g|] << in1 =-= f.
 move: C X Y Z f g.
@@ -640,10 +633,10 @@ Structure cat : Type := Pack {object; morph : object -> object -> setoidType ; _
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
 
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in CatProduct.unpack k.
 
@@ -666,13 +659,11 @@ End CatExp.
 Export CatExp.Exports.
 
 Definition exp (C:expCat) (A B : C) : C := CatExp.exp (CatExp.class C) A B.
-Definition ev (C:expCat) (A B : C) : C (exp A B * A) B := CatExp.ev (CatExp.class C) A B.
+Definition ev {C:expCat} {A B : C} : C (exp A B * A) B := CatExp.ev (CatExp.class C) A B.
 Definition exp_fun (C:expCat) (X Y Z : C) (h: C (X * Y) Z) : C X (exp Y Z) := CatExp.exp_fun (CatExp.class C) h.
 
-Implicit Arguments ev [C A B].
-
-Arguments Scope ev [_ C_scope C_scope].
-Arguments Scope exp [_ C_scope C_scope].
+Arguments ev _ (_ _)%_C_scope.
+Arguments exp _ (_ _)%_C_scope.
 
 Infix "-=>" := exp (at level 54, right associativity) : C_scope.
 
@@ -750,10 +741,10 @@ Structure cat : Type := Pack {object; morph : object -> object -> setoidType ; _
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
 
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in CatProduct.unpack k.
 
@@ -808,10 +799,10 @@ Structure cat : Type := Pack {object : Type; morph : object -> object -> setoidT
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
 
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 Definition pack := let k T M c m := Pack (@Class T M c m) T in ProdSumCat.unpack k.
 
@@ -897,10 +888,10 @@ Structure cat : Type := Pack {object;
   Local Coercion object : cat >-> Sortclass.
   Local Coercion morph : cat >-> Funclass.
 
-Definition class cT := let: Pack _ _ c _ := cT return class_of cT in c. (*CLEAR*)
+Definition class cT := let: Pack c _ := cT return class_of cT in c. (*CLEAR*)
 Definition unpack (K:forall O (M:O -> O -> setoidType) (c:class_of M), Type)
             (k : forall O (M: O -> O -> setoidType) (c : class_of M), K _ _ c) (cT:cat) :=
-  let: Pack _ M c _ := cT return @K _ _ (class cT) in k _ _ c.
+  let: Pack c _ := cT return @K _ _ (class cT) in k _ _ c.
 Definition repack cT : _ -> Type -> cat := let k T M c p := p c in unpack k cT.
 (*CLEARED*)
 Definition pack := let k T M c m := Pack (@Class T M c m) T in Category.unpack k.
@@ -926,13 +917,12 @@ Export CatIProduct.Exports.
 
 Definition prodi (C:prodICat) I (A: I -> C) : C :=
                    (CatIProduct.prod (CatIProduct.class C) A).
-Definition pi (C:prodICat) I (A: I -> C) i : C (prodi A) (A i) :=
+Definition pi {C:prodICat} {I} {A: I -> C} i : C (prodi A) (A i) :=
                    (CatIProduct.pi (CatIProduct.class C) A i).
 Definition prodi_fun (C:prodICat) (Z:C) I (A:I -> C) (f:forall i, C Z (A i)) :
   C Z (prodi A) := (CatIProduct.prod_ex (CatIProduct.class C) f).
-Implicit Arguments pi [C I A].
 
-Arguments Scope prodi_fun [_ _ C_scope C_scope S_scope S_scope].
+Arguments prodi_fun _ (_ _)%_C_scope (_ _)%_S_scope.
 
 Lemma prodi_fun_pi (C:prodICat) I (Z:C) (A:I -> C) (f:forall i:I,Z =-> A i) (i:I):
                                                 pi i << prodi_fun f =-= f i.
@@ -956,13 +946,13 @@ apply tset_sym. by apply prodi_fun_unique ; move => i ; apply tset_sym.
 Qed.
 
 Record functor (C C':catType) : Type := mk_functor
- { functor_ob :> C -> C';
+ { functor_ob;
    functor_morph :> forall (X Y : C), (C X Y) -> C' (functor_ob X) (functor_ob Y);
    functor_id : forall X, @functor_morph X X Id =-= Id;
    functor_comp : forall X Y Z (f:C Y Z) (g:C X Y), functor_morph (f << g) =-= functor_morph f << functor_morph g
  }.
 
-Implicit Arguments functor_morph [C C' X Y].
+Arguments functor_morph {C C'} _ {X Y}.
 
 (*
 Module CatCountable.
