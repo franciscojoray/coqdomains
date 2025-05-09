@@ -33,9 +33,9 @@ Notation class_of := mixin_of (only parsing).
 Section ClassDef.
 Structure type : Type := Pack {sort : O1 -> O2; _ : class_of sort; _ : O1 -> O2}.
 Local Coercion sort : type >-> Funclass.
-Definition class cT := let: Pack _ c _ := cT return class_of cT in c.
+Definition class cT := let: Pack c _ := cT return class_of cT in c.
 Definition unpack K (k : forall T (c : class_of T), K T c) cT :=
-  let: Pack T c _ := cT return K _ (class cT) in k _ c.
+  let: Pack c _ := cT return K _ (class cT) in k _ c.
 Definition repack cT : _ -> Type -> type := let k T c p := p c in unpack k cT.
 Definition pack f (c:class_of f) := @Pack f c f.
 End ClassDef.
@@ -53,7 +53,7 @@ Lemma frespect (S S':setoidType) (f:fset S S') : setoid_respect f.
 case:f => f. case. move => a s. by apply a.
 Qed.
 
-Hint Resolve frespect.
+Hint Resolve frespect: core.
 
 Lemma fset_setoidAxiom (T T' : setoidType) : Setoid.axiom (fun (f g:fset T T') => forall x:T, (f x) =-= (g x)).
 split ; last split.
@@ -300,7 +300,7 @@ Qed.
 
 Definition Sev B A : (fset_setoidType B A) * B =-> A := Eval hnf in mk_fset (@ev_respect B A).
 
-Implicit Arguments Sev [A B].
+Arguments Sev {B A}.
 
 Lemma setoidExpAxiom : @CatExp.axiom _ fset_setoidType (@Sev) (@scurry).
 move => X Y Z h. split ; first by case.
@@ -357,7 +357,7 @@ Canonical Structure setoidInitialCat := Eval hnf in initialCatType (CatInitial.C
 Section Subsetoid.
 Variable (S:setoidType) (P:S -> Prop).
 
-Lemma sub_setoidP : Setoid.axiom (fun (x y:{e : S | P e}) => match x,y with exist x' _, exist y' _ => x' =-= y' end).
+Lemma sub_setoidP : Setoid.axiom (fun (x y:{e : S | P e}) => match x,y with exist _ x' _, exist _ y' _ => x' =-= y' end).
 split ; last split.
 - by case => x Px.
 - case => x Px. case => y Py. case => z Pz. by apply tset_trans.
@@ -367,7 +367,7 @@ Qed.
 Canonical Structure sub_setoidMixin := Setoid.Mixin sub_setoidP.
 Canonical Structure sub_setoidType := Eval hnf in SetoidType sub_setoidMixin.
 
-Lemma forget_respect : setoid_respect (fun (x:sub_setoidType) => match x with exist x' _ => x' end).
+Lemma forget_respect : setoid_respect (fun (x:sub_setoidType) => match x with exist _ x' _ => x' end).
 by case => x Px ; case => y Py.
 Qed.
 
@@ -406,7 +406,7 @@ Canonical Structure option_setoidType := Eval hnf in SetoidType option_setoidMix
 
 End Option.
 
-Arguments Scope fset_setoidType [S_scope S_scope].
+Arguments fset_setoidType (_ _)%_S_scope.
 
 Notation "'Option'" := option_setoidType : S_scope.
 

@@ -1,3 +1,9 @@
 *.vo
 *.glob
 *.v.d
+*.aux
+*.vok
+*.vos
+*.conf
+*.json
+*.d

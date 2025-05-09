@@ -112,7 +112,7 @@ Definition pair2 (d1:DP1) (d2:DP2) : Dprodi DI2 := bool_rect DI2 d1 d2.
 Lemma pair2_le_compat : forall (d1 d'1:DP1) (d2 d'2:DP2), d1 <= d'1 -> d2 <= d'2 
             -> pair2 d1 d2 <= pair2 d'1 d'2.
 intros; intro b; case b; simpl; auto.
-Save.
+Qed.
 
 Definition Pair2 : DP1 -m> DP2 -m> Dprodi DI2 := le_compat2_mon pair2_le_compat.
 
@@ -124,19 +124,19 @@ Defined.
 
 Lemma PAIR2_simpl : forall (d1:DP1) (d2:DP2), PAIR2 d1 d2 = Pair2 d1 d2.
 trivial.
-Save.
+Qed.
 
 Lemma Pair2_simpl : forall (d1:DP1) (d2:DP2), Pair2 d1 d2 = pair2 d1 d2.
 trivial.
-Save.
+Qed.
 
 Lemma pi1_simpl : forall  (d1: DP1) (d2:DP2), pi1 (pair2 d1 d2) = d1.
 trivial.
-Save.
+Qed.
 
 Lemma pi2_simpl : forall  (d1: DP1) (d2:DP2), pi2 (pair2 d1 d2) = d2.
 trivial.
-Save.
+Qed.
 
 Definition DI2_map (f1 : DP1 -c> DP1) (f2:DP2 -c> DP2) 
                : Dprodi DI2 -c> Dprodi DI2 :=
@@ -145,7 +145,7 @@ Definition DI2_map (f1 : DP1 -c> DP1) (f2:DP2 -c> DP2)
 Lemma Dl2_map_eq : forall (f1 : DP1 -c> DP1) (f2:DP2 -c> DP2) (d:Dprodi DI2),
                DI2_map f1 f2 d == pair2 (f1 (pi1 d)) (f2 (pi2 d)).
 intros; simpl; apply Oprodi_eq_intro; intro b; case b; trivial.
-Save.
+Qed.
 End Product2.
 Hint Resolve Dl2_map_eq.
 
@@ -171,7 +171,7 @@ Defined.
 
 Lemma Pair1_simpl : forall (d:D), Pair1 d = pair1 d.
 trivial.
-Save.
+Qed.
 
 Definition PAIR1 : D -c> Dprodi DI1.
 exists Pair1; red; intros; repeat (rewrite Pair1_simpl).
@@ -183,7 +183,7 @@ Defined.
 
 Lemma pi_simpl : forall  (d:D), pi (pair1 d) = d.
 trivial.
-Save.
+Qed.
 
 Definition DI1_map (f : D -c> D) 
                : Dprodi DI1 -c> Dprodi DI1 :=
@@ -192,7 +192,7 @@ Definition DI1_map (f : D -c> D)
 Lemma DI1_map_eq : forall (f : D -c> D) (d:Dprodi DI1),
                DI1_map f d == pair1 (f (pi d)).
 intros; simpl; apply Oprodi_eq_intro; intro b; case b; trivial.
-Save.
+Qed.
 End Product1.
 
 Hint Resolve DI1_map_eq.

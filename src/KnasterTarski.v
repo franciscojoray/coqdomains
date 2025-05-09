@@ -81,7 +81,7 @@ End CLattice.
 Export CLattice.Exports.
 
 Definition inf (cT:clatType) : (cT -> Prop) -> cT := CLattice.inf (CLattice.class cT).
-Implicit Arguments inf [cT].
+Arguments inf {cT}.
 
 Lemma Pinf (T:clatType) : forall P : T -> Prop, forall t, P t -> inf P <= t.
 unfold inf. case:T => A. case => O. simpl. case. simpl.

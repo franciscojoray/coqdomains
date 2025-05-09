@@ -28,9 +28,9 @@ Fixpoint iter_ n : D := match n with O => PBot | S m => f (iter_ m) end.
 Lemma iter_incr : forall n, iter_ n <= f (iter_ n).
 elim ; first by apply: leastP.
 move => n L. simpl. apply: fmonotonic. by apply L.
-Save.
+Qed.
 
-Hint Resolve iter_incr.
+Hint Resolve iter_incr: core.
 
 Lemma iter_m : monotonic iter_.
 move => n n'. elim: n' n.
@@ -50,28 +50,28 @@ unfold fixp.
 apply Ole_trans with (lub (ocomp f iter)).
 - apply: lub_le_compat. move => x. simpl. by apply iter_incr.
 - by rewrite -> lub_comp_le.
-Save.
-Hint Resolve fixp_le.
+Qed.
+Hint Resolve fixp_le: core.
 
 Lemma fixp_eq : fixp =-= f fixp.
 apply: Ole_antisym; first by [].
 unfold fixp. rewrite {2} (lub_lift_left iter (S O)).
 rewrite -> (fcontinuous f iter). by apply: lub_le_compat => i.
-Save.
+Qed.
 
 Lemma fixp_inv : forall g, f g <= g -> fixp <= g.
 unfold fixp; intros g l.
 apply: lub_le. elim. simpl. by apply: leastP.
 move => n L. apply: (Ole_trans _ l). apply: (fmonotonic f). by apply L.
-Save.
+Qed.
 
 End Fixpoints.
-Hint Resolve fixp_le fixp_eq fixp_inv.
+Hint Resolve fixp_le fixp_eq fixp_inv: core.
 
 Definition fixp_cte (D:cppoType) : forall (d:D), fixp (const D d) =-= d.
 intros; apply fixp_eq with (f:=const D d); red; intros; auto.
-Save.
-Hint Resolve fixp_cte.
+Qed.
+Hint Resolve fixp_cte: core.
 
 Add Parametric Morphism (D:cppoType) : (@fixp D)
 with signature (@Ole _ : ((D:cpoType) =-> D) -> (D =-> D) -> Prop) ++> (@Ole _)
@@ -80,14 +80,14 @@ move => x y l. unfold fixp.
 apply: lub_le_compat. elim ; first by [].
 move => n IH. simpl. rewrite -> IH. by apply l.
 Qed.
-Hint Resolve fixp_le_compat.
+Hint Resolve fixp_le_compat: core.
 
 Add Parametric Morphism (D:cppoType) : (@fixp D)
 with signature (@tset_eq _) ==> (@tset_eq D)
 as fixp_eq_compat.
 by intros x y H; apply Ole_antisym ; apply: (fixp_le_compat _) ; case: H.
-Save.
-Hint Resolve fixp_eq_compat.
+Qed.
+Hint Resolve fixp_eq_compat: core.
 
 Lemma fixp_mon (D:cppoType) : monotonic (@fixp D).
 move => x y e. by rewrite -> e.
@@ -97,7 +97,7 @@ Definition Fixp (D:cppoType) : ordCatType (D -=> D) D := Eval hnf in mk_fmono (@
 
 Lemma Fixp_simpl (D:cppoType) : forall (f:D =-> D), Fixp D f = fixp f.
 trivial.
-Save.
+Qed.
 
 Lemma iter_mon (D:cppoType) : monotonic (@iter D).
 move => x y l. elim ; first by [].
@@ -109,11 +109,11 @@ Definition Iter (D:cppoType) : ordCatType (D -=> D) (fmon_cpoType natO D) :=
 
 Lemma IterS_simpl (D:cppoType) : forall f n, Iter D f (S n) = f (Iter _ f n).
 trivial.
-Save.
+Qed.
 
 Lemma iterS_simpl (D:cppoType) : forall (f:cpoCatType D D) n, iter f (S n) = f (iter  f n).
 trivial.
-Save.
+Qed.
 
 Lemma iter_continuous (D:cppoType) :
     forall h : natO =-> D -=> D,
@@ -123,14 +123,14 @@ move => n IH. simpl. rewrite fcont_app_eq. rewrite -> IH. rewrite <- fcont_app_e
 rewrite fcont_app_continuous. rewrite lub_diag. by apply lub_le_compat => i.
 Qed.
 
-Hint Resolve iter_continuous.
+Hint Resolve iter_continuous: core.
 
 Lemma iter_continuous_eq (D:cppoType) :
     forall h : natO =-> (D -=> D),
                   iter (lub h) =-= lub (Iter _ << h).
 intros; apply: Ole_antisym; auto.
 exact (lub_comp_le (Iter _ (*D*)) h).
-Save.
+Qed.
 
 
 Lemma fixp_continuous (D:cppoType) : forall (h : natO =-> (D -=> D)), 
@@ -138,14 +138,13 @@ Lemma fixp_continuous (D:cppoType) : forall (h : natO =-> (D -=> D)),
 move => h. unfold fixp. rewrite -> iter_continuous_eq.
 apply: lub_le => n. simpl.
 apply: lub_le => m. simpl. rewrite <- (le_lub _ m). simpl. unfold fixp. by rewrite <- (le_lub _ n).
-Save.
-Hint Resolve fixp_continuous.
+Qed.
+Hint Resolve fixp_continuous: core.
 
 Lemma fixp_continuous_eq (D:cppoType) : forall (h : natO =-> (D -=> D)), 
         fixp (lub h) =-= lub (Fixp D << h).
 intros; apply: Ole_antisym; auto.
-by apply (lub_comp_le (Fixp D) h).
-Save.
+Qed.
 
 Lemma Fixp_cont (D:cppoType) : continuous (@Fixp D).
 move => c.
@@ -153,23 +152,23 @@ rewrite Fixp_simpl. by rewrite -> fixp_continuous_eq.
 Qed.
 
 Definition FIXP (D:cppoType) : (D -=> D) =-> D := Eval hnf in  mk_fcont (@Fixp_cont D).
-Implicit Arguments FIXP [D].
+Arguments FIXP {D}.
 
 Lemma FIXP_simpl (D:cppoType) : forall (f:D=->D), FIXP f = fixp f.
 trivial.
-Save.
+Qed.
 
 Lemma FIXP_le_compat (D:cppoType) : forall (f g : D =-> D),
             f <= g -> FIXP f <= FIXP g.
 move => f g l. by rewrite -> l.
-Save.
-Hint Resolve FIXP_le_compat.
+Qed.
+Hint Resolve FIXP_le_compat: core.
 
 Lemma FIXP_eq (D:cppoType) : forall (f:D=->D), FIXP f =-= f (FIXP f).
 intros; rewrite FIXP_simpl.
 by apply: (fixp_eq).
-Save.
-Hint Resolve FIXP_eq.
+Qed.
+Hint Resolve FIXP_eq: core.
 
 Lemma FIXP_com: forall E D (f:E =-> (D -=> D)) , FIXP << f =-= ev << <| f, FIXP << f |>.
 intros E D f. apply: fmon_eq_intro. intros e. simpl. by rewrite {1} fixp_eq.
@@ -177,7 +176,7 @@ Qed.
 
 Lemma FIXP_inv (D:cppoType) : forall (f:D=->D)(g : D), f g <= g -> FIXP f <= g.
 intros; rewrite FIXP_simpl; apply: fixp_inv; auto.
-Save.
+Qed.
 
 (** *** Iteration of functional *)
 Lemma FIXP_comp_com (D:cppoType) : forall (f g:D=->D),
@@ -187,7 +186,7 @@ apply Ole_trans with (f (g (FIXP g))).
 assert (X:=H (FIXP g)). simpl. by apply X.
 apply: fmonotonic.
 case (FIXP_eq g); trivial.
-Save.
+Qed.
 
 Lemma FIXP_comp (D:cppoType) : forall (f g:D=->D),
        g << f <= f << g -> f (FIXP g) <= FIXP g -> FIXP (f << g) =-= FIXP g.
@@ -203,7 +202,7 @@ intros; apply: Ole_antisym.
   apply: fmonotonic.
   apply FIXP_inv. simpl. apply: fmonotonic.
   apply Ole_trans with (1:=H1); auto.
-Save.
+Qed.
 
 Fixpoint fcont_compn (D:cppoType) (f:D =->D) (n:nat) {struct n} : D =->D := 
              match n with O => f | S p => fcont_compn f p << f end.
@@ -212,13 +211,13 @@ Add Parametric Morphism (D1 D2 D3 : cpoType) : (@ccomp D1 D2 D3)
 with signature (@Ole (D2 -=> D3) : (D2 =-> D3) -> (D2 =-> D3) -> Prop ) ++> (@Ole (D1 -=> D2)) ++> (@Ole (D1 -=> D3)) 
 as fcont_comp_le_compat.
 move => f g l h k l' x. simpl. rewrite -> l. by rewrite -> l'.
-Save.
+Qed.
 
 Lemma fcont_compn_com (D:cppoType) : forall (f:D =->D) (n:nat), 
             f << (fcont_compn f n) <= fcont_compn f n << f.
 induction n; first by [].
 simpl fcont_compn. rewrite -> comp_assoc. by apply: (fcont_comp_le_compat _ (Ole_refl f)).
-Save.
+Qed.
 
 Lemma FIXP_compn (D:cppoType) : 
      forall  (f:D =->D) (n:nat), FIXP (fcont_compn f n) =-= FIXP f.
@@ -226,11 +225,11 @@ move => f. case ; first by []. simpl.
 move => n. apply: FIXP_comp ; first by apply fcont_compn_com.
 elim: n. simpl. by rewrite <- (FIXP_eq f).
 move => n IH. simpl. rewrite <- (FIXP_eq f). by apply IH.
-Save.
+Qed.
 
 Lemma fixp_double (D:cppoType) : forall (f:D=->D), FIXP (f << f) =-= FIXP f.
 intros; exact (FIXP_compn f (S O)).
-Save.
+Qed.
 
 
 (** *** Induction principle *)
@@ -306,13 +305,13 @@ intros D P I d e. case e. clear e. intros e Pe. case d. clear d. intros d Pd.
 auto.
 Qed.
 
-Hint Resolve Forget_leinj.
+Hint Resolve Forget_leinj: core.
 
 Lemma Forget_inj : forall (D:cpoType) (P:D -> Prop) (I:admissible P) (d:sub_cpoType I) e, Forget I d =-= Forget I e -> d =-= e.
 intros. by split ; case: H ; case: d ; case: e.
 Qed.
 
-Hint Resolve Forget_inj.
+Hint Resolve Forget_inj: core.
 
 Lemma Forget_leinjp: forall (D E:cpoType) (P:D -> Prop) (I:admissible P) (d:E =-> sub_cpoType I) e,
       Forget I << d <= Forget I << e -> d <= e.

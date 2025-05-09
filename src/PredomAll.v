@@ -11,4 +11,4 @@ Require Export PredomSum.
 Require Export PredomLift.
 Require Export PredomKleisli.
 Require Export PredomFix.
-Implicit Arguments eta [D].
+Arguments eta {D}.

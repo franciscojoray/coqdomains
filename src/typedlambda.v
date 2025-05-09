@@ -12,7 +12,8 @@
   ==========================================================================*)
 
 Require Import Program.Equality.
-Require Export ssreflect ssrnat seq eqtype.
+Require Export ssreflect.
+From mathcomp Require Export ssrnat seq eqtype.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Import Prenex Implicits.
@@ -58,8 +59,8 @@ with Exp E : Ty -> Type :=
 Definition CExp t := Exp nil t.
 Definition CValue t := Value nil t.
 (*=End *)
-Implicit Arguments TBOOL [E].
-Implicit Arguments TINT [E].
+Arguments TBOOL {E}.
+Arguments TINT {E}.
 
 (* begin hide *)
 Scheme Val_rec2 := Induction for Value Sort Set
@@ -85,8 +86,8 @@ Definition Map (P:Env -> Ty -> Type) E E' := forall t, Var E t -> P E' t.
 (* Head, tail and cons *)
 Definition tlMap P E E' t (m:Map P (t::E) E') : Map P E E' := fun t' v => m t' (SVAR t v).
 Definition hdMap P E E' t (m:Map P (t::E) E') : P E' t := m t (ZVAR _ _).
-Implicit Arguments tlMap [P E E' t].
-Implicit Arguments hdMap [P E E' t].
+Arguments tlMap [P E E' t].
+Arguments hdMap [P E E' t].
 
 
 Definition cast P (E E' : Env) (t : Ty) (x:P E t) (p:E=E') : P E' t.
@@ -101,7 +102,7 @@ Program Definition consMap P E E' t (v:P E' t) (m:Map P E E') : Map P (t::E) E' 
     | SVAR _ _ _ var => m _ var
     end.
 
-Implicit Arguments consMap [P E E' t].
+Arguments consMap {P E E' t}.
 
 Axiom MapExtensional : forall P E E' (r1 r2 : Map P E E'), (forall t var, r1 t var = r2 t var) -> r1 = r2.
 
@@ -136,10 +137,10 @@ Section MapOps.
   | ZVAR _ _ => vr ops (ZVAR _ _)
   | SVAR _ _ _ x => wk ops _ (m _ x)
   end.
-  Implicit Arguments lift [env env'].
+  Arguments lift [env env'].
 
   Definition shiftMap env env' ty (m : Map P env env') : Map P env (ty :: env') := fun ty' => fun var => wk ops _ (m ty' var).
-  Implicit Arguments shiftMap [env env'].
+  Arguments shiftMap {env env'}.
 
   Lemma shiftConsMap : forall env env' ty (m : Map P env env') (x : P env' ty) ty', shiftMap ty' (consMap x m) = consMap (wk ops _ x) (shiftMap ty' m). 
   Proof.
@@ -192,8 +193,8 @@ End MapOps.
 
 Hint Rewrite mapTVAR mapTINT mapTBOOL mapTPAIR mapTFST mapTSND mapTFIX mapTOP mapTGT mapTVAL mapTLET mapTIF mapTAPP : mapHints.
 
-Implicit Arguments lift [P env env'].
-Implicit Arguments shiftMap [P env env'].
+Arguments lift [P] ops [env env'].
+Arguments shiftMap [P] ops [env env'].
 
 (*==========================================================================
   Variable renamings: Map Var
@@ -204,10 +205,10 @@ Definition RenMapOps := (Build_MapOps (fun _ _ v => v) TVAR SVAR).
 
 Definition renameVal := mapVal RenMapOps.
 Definition renameExp := mapExp RenMapOps.
-Definition liftRen := lift RenMapOps. 
-Implicit Arguments liftRen [env env'].
+Definition liftRen := lift RenMapOps.
+Arguments liftRen [env env'].
 Definition shiftRen := shiftMap RenMapOps.
-Implicit Arguments shiftRen [env env'].
+Arguments shiftRen [env env'].
 
 Section RenDefs.
 
@@ -241,7 +242,7 @@ intros. apply MapExtensional. auto.  Qed.
   ==========================================================================*)
 
 Definition idRen env : Ren env env := fun ty (var : Var env ty) => var.
-Implicit Arguments idRen [].
+Arguments idRen: clear implicits.
 
 Lemma liftIdRen : forall E t, liftRen _ (idRen E) = idRen (t::E).
 intros. apply MapExtensional.  
@@ -306,10 +307,10 @@ Definition subVal := mapVal SubMapOps.
 Definition subExp := mapExp SubMapOps.
 
 Definition shiftSub := shiftMap SubMapOps.
-Implicit Arguments shiftSub [env env'].
+Arguments shiftSub [env env'].
 
 Definition liftSub := lift SubMapOps.
-Implicit Arguments liftSub [env env']. 
+Arguments liftSub [env env']. 
 
 Section SubDefs.
 
@@ -341,7 +342,7 @@ Hint Rewrite substTVAR substTPAIR substTINT substTBOOL substTFST substTSND subst
   ==========================================================================*)
 
 Definition idSub env : Sub env env := fun ty (x:Var env ty) => TVAR x.
-Implicit Arguments idSub [].
+Arguments idSub: clear implicits.
 
 Lemma liftIdSub : forall env ty, liftSub ty (idSub env) = idSub (ty :: env).
 intros env ty. apply MapExtensional. unfold liftSub. intros.
@@ -349,8 +350,8 @@ dependent destruction var; auto.
 Qed.
 
 Lemma applyIdSub env : 
-   (forall ty (v : Value env ty), subVal (idSub env) v = v)
-/\ (forall ty (e : Exp env ty), subExp (idSub env) e = e).
+   (forall ty (v : Value env ty), subVal (@idSub env) v = v)
+/\ (forall ty (e : Exp env ty), subExp (@idSub env) e = e).
 Proof.
 move: env ; apply ExpVal_ind; intros; autorewrite with substHints; try rewrite liftIdSub; try rewrite liftIdSub; try rewrite H; try rewrite H0; try rewrite H1; auto.
 Qed.

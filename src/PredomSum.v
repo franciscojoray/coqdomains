@@ -85,7 +85,7 @@ Section CPOSum.
 Variable D1 D2 : cpoType.
 
 Lemma sum_left_mono (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inl D2 d}) :
-   monotonic (fun x => match c x with | inl y => y | inr _ => projT1 ex end).
+   monotonic (fun x => match c x with | inl y => y | inr _ => proj1_sig ex end).
 case:ex => x X. simpl.
 move => z z' l. simpl.
 have H:= fmonotonic c (leq0n z). have HH:=fmonotonic c (leq0n z').
@@ -98,7 +98,7 @@ Definition sum_left (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inl D2 d}) : na
    Eval hnf in mk_fmono (sum_left_mono ex).
 
 Lemma sum_right_mono (c:natO =-> sum_ordType D1 D2) (ex:{d| c O = inr D1 d}) :
-   monotonic (fun x => match c x with | inr y => y | inl _ => projT1 ex end).
+   monotonic (fun x => match c x with | inr y => y | inl _ => proj1_sig ex end).
 case:ex => x X. simpl.
 move => z z' l. simpl.
 have H:= fmonotonic c (leq0n z). have HH:=fmonotonic c (leq0n z').
@@ -239,7 +239,7 @@ by case => x ; simpl ; rewrite SUM_fun_simpl ; apply: lub_le_compat => n ; simpl
 Qed.
 
 Definition SUM_Fun (D E F:cpoType) : ((D -=> F) * (E -=> F)) =-> (D + E -=> F) := Eval hnf in  mk_fcont (@SUM_Fon_cont D E F).
-Implicit Arguments SUM_Fun [D E F].
+Arguments SUM_Fun {D E F}.
 
 Lemma SUM_Fun_simpl (D E F:cpoType) (f:D =-> F) (g:E =-> F) : SUM_Fun (f,g) =-= SUM_fun f g.
 apply: fmon_eq_intro => x. simpl. unfold sum_fun. simpl. by do 2 rewrite SUM_fun_simpl.

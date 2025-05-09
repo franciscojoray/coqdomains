@@ -209,7 +209,7 @@ as kleisli_eq_compat.
 move => f f' e. split ; [apply (kleisli_le_compat (proj1 e)) | apply (kleisli_le_compat (proj2 e))].
 Qed.
 
-Implicit Arguments KLEISLI [D0 D1].
+Arguments KLEISLI {D0 D1}.
 
 Lemma KLEISLI_simpl (D0 D1: cpoType) (f:D0 =-> D1 _BOT) : KLEISLI f = kleisli f.
 auto.
@@ -420,7 +420,7 @@ rewrite <- kleisli_comp2. rewrite comp_idL. by rewrite kleisli_unit.
 Qed.
 
 Definition SWAP (C:prodCat) (X Y : C) : (X * Y) =-> (Y * X) := <| pi2, pi1 |>.
-Implicit Arguments SWAP [C X Y].
+Arguments SWAP {C X Y}.
 
 Definition Application := fun (D0 D1:cpoType) => exp_fun ((uncurry (@KLEISLI (D0 -=> D1 _BOT) D1)) <<
                                        <| exp_fun ((uncurry KLEISLI) << SWAP) << pi2, pi1 |>).
