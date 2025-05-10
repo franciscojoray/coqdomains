@@ -55,7 +55,8 @@ simpl. rewrite <- IHEv2. clear IHEv2.
 rewrite <- (proj2 (SemCommutesWithSub _) _ _ _).
 simpl. rewrite <- (KLEISLIR_unit (SemExp e2) (SemVal v1) _).
 rewrite <- IHEv1. clear IHEv1.
-by rewrite <- (terminal_unique Id _).
+setoid_rewrite <- (terminal_unique Id _).
+auto.
 
 (* e_Iftrue *)
 simpl. rewrite IHEv. by apply: fmon_eq_intro.

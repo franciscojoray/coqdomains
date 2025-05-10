@@ -358,8 +358,8 @@ Qed.
 
 Notation "[ x , .. , y ]" := (consMap x .. (consMap y (idSub _)) ..) : Sub_scope. 
 Delimit Scope Sub_scope with subst.
-Arguments Scope subExp [_ _ Sub_scope]. 
-Arguments Scope subVal [_ _ Sub_scope]. 
+Arguments subExp _ _ _%_Sub_scope. 
+Arguments subVal _ _ _%_Sub_scope. 
 
 Lemma LiftSubDef : forall env env' ty (s : Sub env' env), liftSub ty s = consMap (TVAR (ZVAR _ _)) (shiftSub ty s).
 intros. apply MapExtensional. intros. dependent destruction var; auto. Qed.
@@ -393,7 +393,7 @@ Qed.
 
 Definition composeSub env env' env'' (s' : Sub env' env'') (s : Sub env env') : Sub env env'' := fun ty var => subVal s' (s _ var). 
 
-Arguments Scope composeSub [_ _ _ Sub_scope Sub_scope]. 
+Arguments composeSub _ _ _ (_ _)_%_Sub_scope. 
 
 Lemma liftComposeSub : forall env env' env'' ty (s' : Sub env' env'') (s : Sub env env'), liftSub ty (composeSub s' s) = composeSub (liftSub ty s') (liftSub ty s).
 intros. apply MapExtensional. intros t0 var. dependent destruction var. auto.

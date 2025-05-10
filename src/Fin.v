@@ -8,7 +8,7 @@
 
 (* Finite nats and maps *)
 
-Require Export ssreflect ssrnat.
+From mathcomp Require Export ssreflect ssrnat.
 Require Export NaryFunctions.
 Require Import Program.
 Set Implicit Arguments.

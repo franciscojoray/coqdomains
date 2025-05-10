@@ -30,23 +30,23 @@ Canonical Structure kcpoCatType := Eval hnf in CatType kcpoCatMixin.
 (*=End *)
 
 Module Type RecDom.
-  Variable DInf : cpoType.
+  Parameter DInf : cpoType.
   Definition VInf :=  discrete_cpoType nat + (DInf -=> DInf _BOT).
-  Variable Roll : VInf =-> DInf.
-  Variable Unroll : DInf =-> VInf.
+  Parameter Roll : VInf =-> DInf.
+  Parameter Unroll : DInf =-> VInf.
 
-  Variable RU_id : Roll << Unroll =-= Id.
-  Variable UR_id : Unroll << Roll =-= Id.
+  Parameter RU_id : Roll << Unroll =-= Id.
+  Parameter UR_id : Unroll << Roll =-= Id.
 
-  Variable delta : (DInf -=> DInf _BOT) =-> (DInf -=> DInf _BOT).
-  Variable delta_simpl : forall e, delta e =-= eta << Roll << ([| in1,
+  Parameter delta : (DInf -=> DInf _BOT) =-> (DInf -=> DInf _BOT).
+  Parameter delta_simpl : forall e, delta e =-= eta << Roll << ([| in1,
       (in2 <<
     ((exp_fun (CCOMP DInf (DInf _BOT) (DInf _BOT):cpoCatType _ _) (kleisli e) : cpoCatType _ _) <<
      ((exp_fun
         ((CCOMP DInf (DInf _BOT) (DInf _BOT)) << SWAP) e :cpoCatType _ _) << KLEISLI))) |]) << Unroll.
 
-  Variable delta_eta : delta eta =-= eta.
-  Variable id_min : eta =-= @FIXP _ delta.
+  Parameter delta_eta : delta eta =-= eta.
+  Parameter id_min : eta =-= @FIXP _ delta.
 
 End RecDom.
 
@@ -109,7 +109,7 @@ move => i. apply: fmon_eq_intro. case => d Pd.
 by apply (Oeq_sym (proj1 (Pd i))).
 Defined.
 
-Implicit Arguments InheritFun [D E P].
+Arguments InheritFun [D E P].
 
 Lemma retract_total D E (f:D =-> E _BOT) (g:E =-> D _BOT) : kleisli f << g =-= eta -> total g.
 unfold total. move => X d. have X':=fmon_eq_elim X d.
