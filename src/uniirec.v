@@ -10,6 +10,7 @@
 
 Require Export PredomAll.
 Require Import PredomRec.
+Require Import PredomKleisli.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -237,11 +238,11 @@ exists (fun X Y => (ob F X Y) + (ob G X Y)) (fun X Y Z W => @sum_func F G X Y Z 
 move => T0 T1 T2 T3 T4 T5 f g h k. simpl.
 apply: (@sum_unique cpoSumCatType).
 - rewrite sum_fun_fst. rewrite {2} / Category.comp. simpl. rewrite <- comp_assoc.
-  rewrite sum_fun_fst. rewrite comp_assoc. rewrite <- kleisli_comp2. rewrite sum_fun_fst.
+  rewrite sum_fun_fst. rewrite comp_assoc. setoid_rewrite <- kleisli_comp2. rewrite sum_fun_fst.
   rewrite <- (comp_eq_compat (tset_refl (kleisli (eta << in1))) (@morph_comp _ F T0 T1 T2 T3 T4 T5 f g h k)).
   rewrite {6} /Category.comp. simpl. rewrite comp_assoc. by rewrite kleisli_comp.
 - rewrite sum_fun_snd. rewrite {2} / Category.comp. simpl. rewrite <- comp_assoc.
-  rewrite sum_fun_snd. rewrite comp_assoc. rewrite <- kleisli_comp2. rewrite sum_fun_snd.
+  rewrite sum_fun_snd. rewrite comp_assoc. setoid_rewrite <- kleisli_comp2. rewrite sum_fun_snd.
   rewrite <- (comp_eq_compat (tset_refl (kleisli (eta << in2))) (@morph_comp _ G T0 T1 T2 T3 T4 T5 f g h k)).
   rewrite {6} /Category.comp. simpl. rewrite comp_assoc. by rewrite kleisli_comp.
 - move => T0 T1. simpl. apply: (@sum_unique cpoSumCatType).

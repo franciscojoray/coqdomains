@@ -9,7 +9,7 @@
 (* soundness of semantics of unityped lambda calculus *)
 
 Require Import PredomAll.
-Require Import ssrnat. 
+From mathcomp Require Export ssrnat. 
 Require Import uniisem uniiop Fin.
 
 Set Implicit Arguments.
@@ -134,7 +134,8 @@ Proof. move => D. elim: e v / D.
   rewrite <- prod_map_prod_fun.
   rewrite (comp_assoc _ _ ev). rewrite (comp_assoc _ in2). rewrite sum_fun_snd.
   rewrite (comp_idL (exp_fun _)). rewrite exp_com. repeat rewrite <- comp_assoc.
-   rewrite comp_assoc. rewrite <- kleisli_comp2. rewrite <- comp_assoc.
+  rewrite (comp_assoc _ _ (kleisli (eta << Unroll))).
+  rewrite <- kleisli_comp2. rewrite <- comp_assoc.
   rewrite UR_id. rewrite comp_idR. rewrite kleisli_unit. rewrite comp_idL.
   rewrite prod_map_prod_fun. rewrite comp_idR. rewrite comp_assoc. rewrite UR_id.
   rewrite comp_idL. 

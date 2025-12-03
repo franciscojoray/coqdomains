@@ -9,7 +9,8 @@
 
 (** * Specification and properties of bisected ultrametric spaces *)
 
-Require Export ssreflect ssrnat ssrbool eqtype.
+Require Export ssreflect ssrbool.
+From mathcomp Require Export ssrnat eqtype. 
 Require Export Categories NSetoid.
 
 Require Export Coq.Setoids.Setoid.
@@ -77,7 +78,7 @@ Definition Mrel (m:metricType) : nat -> m -> m -> Prop :=
 Notation "x '=' n '=' y" := (@Mrel _ n x y) : M_scope.
 (*=End *)
 
-Implicit Arguments Mrel [m].
+Arguments Mrel {m}.
 
 Lemma Mrefl (m:metricType) (x y:m) : (forall n, x = n = y) <-> x =-= y.
 unfold Mrel. case (Metric.met (Metric.class m)). move => r P. apply (proj1 (P O x y y)).

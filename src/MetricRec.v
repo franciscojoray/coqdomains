@@ -518,7 +518,7 @@ end.
 
 Lemma retract_IP: forall n, retract (Injection n) (Projection n).
 elim ; first by apply: terminal_unique.
-move => n IH. unfold retract. simpl. rewrite -> morph_comp.
+move => n IH. unfold retract. simpl. setoid_rewrite -> morph_comp.
 unfold retract in IH. rewrite -> (morph_eq_compat F IH IH).
 by rewrite -> morph_id.
 Qed.
@@ -616,7 +616,7 @@ Defined.
 
 Definition ECoCone : CoCone DTower.
 exists (ob F DInf DInf) (fun i => morph F _ _ _ _ (Projections i, Embeddings i) << Injection i).
-move => i. simpl. rewrite -> morph_comp.
+move => i. simpl. setoid_rewrite -> morph_comp.
 by rewrite -> (morph_eq_compat F (mconeCom (L DTower) i) (mcoconeCom DCoCone i)).
 Defined.
 
@@ -632,7 +632,7 @@ Definition FCone : Cone DTower.
 exists (ob F DInf DInf) (fun n => Projection n << morph F _ _ _ _ (Embeddings n, Projections n)).
 move => i. refine (comp_eq_compat (tset_refl _) _). unfold Projections.
 rewrite <- (morph_eq_compat F (coCom i) (mconeCom (L DTower) i)). simpl.
-by rewrite -> morph_comp.
+by setoid_rewrite -> morph_comp.
 Defined.
 
 Definition chainFPE (C:CoCone DTower) := chainPE C FCone.
@@ -688,7 +688,7 @@ move => C n. simpl.
   destruct (cumet_conv (cutn n (chainFPE C)) m) as [m' X]. specialize (X m' (leqnn _)).
   specialize (ne _ _ _ _ X). simpl in ne. refine (Mrel_trans _ ne). clear ne.
   apply: (proj2 (Mrefl _ _)).
-  do 2 rewrite comp_assoc. rewrite <- (comp_assoc (morph F _ _ _ _ _)). rewrite -> morph_comp.
+  do 2 rewrite comp_assoc. setoid_rewrite <- (comp_assoc (morph F _ _ _ _ _)). setoid_rewrite -> morph_comp.
   rewrite -> (morph_eq_compat F (emp n (n+m')) (emp (n+m') n)). rewrite morph_tnm.
   rewrite <- (comp_assoc (t_nm DTower n.+1 (n+m').+1) (Projection (n + m')) (mcocone C (n + m'))).
   rewrite <- (t_nmProjection DTower). rewrite <- comp_assoc. rewrite <- (t_nmEmbedding DTower).
@@ -707,14 +707,14 @@ move => C h X. rewrite <- (comp_idR h).
   rewrite -> c. clear c. 
   have ne:= nonexp_continuous (exp_fun (@ccomp M _ _ _) h) ((liftc (morph F DCoCone DInf DInf DCoCone)
         (cchain_pair (chainPEc DCoCone) (chainPEc DCoCone)))). simpl in ne.
-  rewrite -> (@ccomp_eq M _ _ _ h (umet_complete (liftc (morph F DCoCone DInf DInf DCoCone) _))) in ne.
+  setoid_rewrite -> (@ccomp_eq M _ _ _ h (umet_complete (liftc (morph F DCoCone DInf DInf DCoCone) _))) in ne.
   apply: (tset_trans ne). rewrite -> (cut_complete_eq 1 (chainFPE C)).
   refine (@umet_complete_ext (cmetricMorph _ _) _ _ _) => i. simpl.
-  rewrite ccomp_eq. clear ne. rewrite -> morph_comp.
+  rewrite ccomp_eq. clear ne. setoid_rewrite -> morph_comp.
   rewrite <- (morph_comp F (mcone (L DTower) i) (Embeddings i) (Embeddings i) (mcone (L DTower) i)).
   rewrite comp_assoc. apply: comp_eq_compat.
   + specialize (X i.+1). simpl in X. unfold addn. simpl. rewrite -> X. apply: comp_eq_compat ; first by [].
-    rewrite -> morph_comp. apply morph_eq_compat.
+    setoid_rewrite -> morph_comp. apply morph_eq_compat.
     * by rewrite -> (mconeCom (L DTower) i).
     * by rewrite -> (@mcoconeCom DTower DCoCone i).
   + apply morph_eq_compat.

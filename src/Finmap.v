@@ -70,7 +70,8 @@
 
 *)
 
-Require Export ssreflect ssrnat ssrbool seq eqtype.
+Require Export ssreflect ssrbool.
+From mathcomp Require Export ssrnat eqtype seq.
 Require Import ssrfun.
 
 Set Implicit Arguments.

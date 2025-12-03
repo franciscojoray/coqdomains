@@ -11,7 +11,8 @@
    Presentation of the syntax is just a tad longwinded at the moment...
 *)
 
-Require Export ssreflect ssrnat ssrbool eqtype ssrfun Finmap.
+Require Export ssreflect ssrbool ssrfun Finmap.
+From mathcomp Require Import ssrnat eqtype.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
