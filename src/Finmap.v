@@ -161,7 +161,7 @@ Definition unpack K (k : forall T (c : class_of T), K T c) cT :=
 Definition repack cT : _ -> Type -> type := let k T c p := p c in unpack k cT.
 Definition pack T c := @Pack T c T.
 
-Definition eqType cT := Equality.Pack (Equality.Mixin (@eqP cT)) cT.
+Definition eqType cT := Equality.Pack (Equality.Class (Equality.Mixin (@eqP cT))).
 
 Lemma comp_ne cT x y b : comp (class cT) x y = inr unit b -> negb (@eqop cT x y).
 unfold eqop. move => e. by rewrite e.
@@ -800,8 +800,8 @@ Qed.
 
 End FinDom.
 
-Canonical Structure findom_eqMixin T T' := EqMixin (@findom_eqP T T').
-Canonical Structure findom_eqType T T' := Eval hnf in EqType _ (findom_eqMixin T T').
+Canonical Structure findom_eqMixin T T' := Equality.Mixin (@findom_eqP T T').
+(* Canonical Structure findom_eqType T T' := Eval hnf in EqType (findom_eqMixin T T'). *)
 
 Lemma leq_upd T (T':eqType) (f:FinDom T T') l a : l \notin (dom f) -> findom_leq f (updMap l a f).
 apply (findom_ind f) ; first by [].
