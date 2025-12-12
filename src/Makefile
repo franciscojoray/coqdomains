@@ -44,8 +44,8 @@ CAMLFLAGS         := $(COQMF_CAMLFLAGS)
 HASNATDYNLINK     := $(COQMF_HASNATDYNLINK)
 OCAMLWARN         := $(COQMF_WARN)
 
-Makefile.conf: 
-	coq_makefile KnasterTarski.v Categories.v PredomAll.v PredomCore.v PredomFix.v PredomKleisli.v PredomLift.v PredomRec.v PredomSum.v NSetoid.v typedadequacy.v typeddensem.v typedlambda.v typedopsem.v typedsoundness.v typedsubst.v unii.v uniirec.v uniiade.v uniisem.v uniiop.v uniisound.v MetricCore.v MetricRec.v Finmap.v FinmapMetric.v Fin.v KSOp.v KSTyping.v KSTm.v KSTy.v KSSem.v mpremet.v -o Makefile
+Makefile.conf: _CoqProject
+	coq_makefile -f _CoqProject -o Makefile
 
 # This file can be created by the user to hook into double colon rules or
 # add any other Makefile code he may need
@@ -888,9 +888,9 @@ $(addsuffix .d,$(MLPACKFILES)): %.mlpack.d: %.mlpack
 # If this makefile is created using a _CoqProject we have coqdep get
 # options from it. This avoids argument length limits for pathological
 # projects. Note that extra options might be on the command line.
-VDFILE_FLAGS:=$(if ,-f ,) $(CMDLINE_COQLIBS) $(CMDLINE_VFILES)
+VDFILE_FLAGS:=$(if _CoqProject,-f _CoqProject,) $(CMDLINE_COQLIBS) $(CMDLINE_VFILES)
 
-$(VDFILE):  $(VFILES)
+$(VDFILE): _CoqProject $(VFILES)
 	$(SHOW)'COQDEP VFILES'
 	$(HIDE)$(COQDEP) $(if $(strip $(METAFILE)),-m "$(METAFILE)") -vos -dyndep var $(VDFILE_FLAGS) $(redir_if_ok)
 

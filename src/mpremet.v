@@ -238,7 +238,7 @@ Qed.
 
 Definition PCM_morph (A B:pcmType) : (fpcm_metricType A B) =-> ((A:cmetricType) -=> B) :=
  Eval hnf in mk_fmet (@pcm_morph_nonexp A B).
-Implicit Arguments PCM_morph [A B].
+Arguments PCM_morph {A B}.
 
 Lemma lub_mono A B (c:cchain (fpcm_metricType A B)) : monotonic (umet_complete (liftc PCM_morph c)).
 move => a a' L. simpl.
@@ -329,7 +329,7 @@ by apply l.
 Qed.
 
 Definition Pcomp A B C : ((B -=> C) * (A -=> B)) =-> A -=> C := Eval hnf in mk_fpcm (@pcomp_mono A B C).
-Implicit Arguments Pcomp [A B C].
+Arguments Pcomp {A B C}.
 
 Lemma Pcomp_simpl A B C (f:B =-> C) (g:A =-> B) : (@Pcomp A B C (f,g)) = f << g.
 by [].
@@ -341,7 +341,7 @@ Qed.
 
 Canonical Structure morphc_pcmType (A B:pcmType) := Eval hnf in @sub_cmetricType (morph_cmetricType A B) (@contractive _ _) (@contractive_complete A B).
 
-Implicit Arguments morphc_pcmType [].
+(* Implicit Arguments morphc_pcmType []. *)
 
 Definition morphc_morph A B (f:morphc_pcmType A B) := match f with exist f' _ => f' end.
 
@@ -359,7 +359,7 @@ Definition FIXPx (M:pcmType) : (morphc_pcmType M M) =-> M := Eval hnf in mk_fmet
 
 Definition FIXP (M:pcmType) : (morphc_pcmType M M) =-> M := locked (FIXPx M).
 
-Implicit Arguments FIXP [M].
+Arguments FIXP {M}.
 
 Lemma FIXP_fp (M:pcmType) (f:morphc_pcmType M M) : FIXP f =-= morphc_fun f (FIXP f).
 case:f => f C. simpl. unlock FIXP. simpl.
@@ -375,7 +375,7 @@ Qed.
 Definition discrete_pcmMixin T (x:T) := PCMMixin (@discrete_pcm_axiom T) x.
 Definition discrete_pcmType T x := Eval hnf in @PCMType (discrete_cmetricType T) (@discrete_pcmMixin T x).
 
-Implicit Arguments discrete_pcmType [].
+(* Implicit Arguments discrete_pcmType []. *)
 
 Section IProd.
 Variable I : Type.
@@ -432,8 +432,8 @@ Qed.
 
 Definition Pprod_fun (A B C:pcmType) : ((A -=> B) * (A -=> C) =-> A -=> B * C) := Eval hnf in mk_fpcm (@pprod_funN_mono A B C).
 
-Implicit Arguments Pprod_fun [A B C].
-Implicit Arguments pprod_fun_ne [A B C].
+Arguments Pprod_fun {A B C}.
+Arguments pprod_fun_ne {A B C}.
 
 Lemma unit_pcm_axiom : @PreCBUmet.axiom unit_cmetricType (@Ole _).
 by [].
@@ -623,7 +623,7 @@ Definition BiComp (BF:BiFunctor pcmECatType) (BG:BiFunctor pcmECatType) (BH:BiFu
 exists (fun D E => ob BH (ob BF E D) (ob BG D E)) 
  (fun D E F G => ((morph BH (ob BF F D) (ob BF G E) (ob BG D F) (ob BG E G)) <<
            (mprod_fun ((morph BF G F E D) << <| psnd _ _, pfst _ _ |>) (morph BG D E F G)))).
-- move => A B C D E F f g h k. simpl. rewrite -> (morph_comp BH).
+- move => A B C D E F f g h k. simpl. rewrite (morph_comp BH).
   by rewrite -> (morph_eq_compat BH (morph_comp BF k h g f) (morph_comp BG f g h k)).
 - move => A B. simpl.
   rewrite -> (morph_eq_compat BH (morph_id BF B A) (morph_id BG A B)).
@@ -974,7 +974,7 @@ End Map.
 Definition prod_BF : BiFunctor pcmECatType.
 exists (fun A B => (ob BF A B) * (ob BG A B)) (fun (A B C D:pcmType) => (((Fprod_map (ob BF A C) (ob BF B D) (ob BG A C) (ob BG B D)) : cmetricCatType _ _) << (<|morph BF A B C D, morph BG A B C D|>))).
 - move => A B C D E F f g h k. simpl. rewrite prod_map_prod_fun.
-  do 2 rewrite comp_assoc. rewrite -> (morph_comp BF). by rewrite -> (morph_comp BG).
+  do 2 rewrite comp_assoc. rewrite (morph_comp BF). by rewrite (morph_comp BG).
 - move => A B. simpl. do 2 rewrite morph_id. do 2 rewrite comp_idL.
   by apply: prod_unique ; [rewrite prod_fun_fst | rewrite prod_fun_snd] ; rewrite comp_idR.
 Defined.
