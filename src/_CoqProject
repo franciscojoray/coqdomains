@@ -1,6 +1,7 @@
 -R . Coqdomains
 KnasterTarski.v
 Categories.v
+domoprs.v
 PredomAll.v
 PredomCore.v
 PredomFix.v
@@ -27,3 +28,10 @@ Finmap.v
 FinmapMetric.v
 Fin.v
 mpremet.v
+nbe/Domains.v
+nbe/DomainStuff.v
+nbe/ExSem.v
+nbe/Lang.v
+nbe/PredomProd.v
+nbe/Types.v
+nbe/Utils.v
