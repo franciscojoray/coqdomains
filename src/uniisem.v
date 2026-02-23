@@ -26,9 +26,6 @@ Fixpoint SemVar E (v : Fin E) : SemEnv E =-> VInf :=
   end.
 (*=End *)
 
-Canonical Structure nat_cpoType := Eval hnf in discrete_cpoType nat.
-Canonical Structure bool_cpoType := Eval hnf in discrete_cpoType bool.
-
 Lemma zeroCase_mon : monotonic (fun (n:nat_cpoType) => match n with | O => @in1 _ (One:cpoType) _ tt | S m => @in2 _ _ (discrete_cpoType nat) m end).
 move => x y. case. move => e ; rewrite e. clear x e. by case: y.
 Qed.

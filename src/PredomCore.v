@@ -177,7 +177,7 @@ Lemma Ole_refl_eq : forall  (O:ordType) (x y:O), x = y -> x <= y.
 intros O x y H; rewrite H; auto.
 Save Ole_refl_eq.
 
-Hint Resolve Ole_refl_eq.
+Hint Resolve Ole_refl_eq: core.
 
 Lemma Ole_antisym : forall (O:ordType) (x y:O), x <= y -> y <= x -> x =-= y.
 unfold Ole. unfold tset_eq. simpl.
@@ -443,7 +443,7 @@ End ordCatProd.
 Lemma fmon_eq_intro : forall (O1 O2:ordType) (f g:O1 =-> O2), (forall n, f n =-= g n) -> f =-= g.
 move => O0 O1 f g X. split => x. by apply (proj1 (X x)).  by apply (proj2 (X x)). 
 Save fmon_eq_intro.
-Hint Resolve fmon_eq_intro.
+Hint Resolve fmon_eq_intro: core.
 
 Lemma fmon_eq_elim : forall (O1 O2:ordType) (f g:O1 =-> O2), f =-= g ->forall n, f n =-= g n.
 move => O1 O2 f g e n. split ; by [apply (proj1 e) | apply (proj2 e)].
@@ -557,7 +557,7 @@ End CPO.
 (*=End *)
 Export CPO.Exports.
 
-Bind Scope D_scope with CPO.sort.
+Declare Scope D_scope.
 Delimit Scope D_scope with CPO.
 
 Open Scope D_scope.
@@ -574,7 +574,7 @@ case: T c x. simpl. move => T. case. move => B. case. simpl. move => l A T' c x 
 by apply (proj2 (A c x O)).
 Qed.
 
-Hint Resolve le_lub lub_le.
+Hint Resolve le_lub lub_le: core.
 
 Add Parametric Relation (O:cpoType) : O (@tset_eq O : O -> O -> Prop)
        reflexivity proved by (@Oeq_refl O) symmetry proved by (@Oeq_sym O)
@@ -647,8 +647,8 @@ Lemma fcontinuous O1 O2 (f:fcont O1 O2) : continuous f.
 case: f. simpl. move => f. case => fm. by case.
 Qed.
 
-Hint Resolve fcontinuous.
-Hint Unfold continuous.
+Hint Resolve fcontinuous: core.
+Hint Unfold continuous: core.
 
 Canonical Structure mk_fcontM (D0 D1:cpoType) (f:fmono D0 D1) (c:continuous (FMon.Pack (FMon.class f) f)) := fcontMixin c.
 Definition mk_fcont (D0 D1:cpoType) (f:fmono D0 D1) (c:continuous (FMon.Pack (FMon.class f) f)) := Eval hnf in @fcontType D0 D1 f (mk_fcontM c).
