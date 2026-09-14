@@ -41,35 +41,57 @@ Module Type RecDom.
   Parameter DInf : cpoType.
   
   Definition VInf := discrete_cpoType nat +
-                    (DInf -=> DInf).
+                       (DInf -=> DInf _BOT) +
+                    (DInf * DInf).
   Parameter Roll : VInf =-> DInf.
   Parameter Unroll : DInf =-> VInf.
 
   Parameter RU_id : Roll << Unroll =-= Id.
   Parameter UR_id : Unroll << Roll =-= Id.
     
-  Definition inNat : nat_cpoType =-> VInf :=
-    in1 (A:=nat_cpoType) (B:=DInf -=> DInf).
-
-  Definition inFun : (DInf -=> DInf) =-> VInf :=
-    in2 (A:=nat_cpoType) (B:=DInf -=> DInf).
+  Definition inBool :=
+    in1 (A:=bool_cpoType + nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+        <<
+    in1 (A:=bool_cpoType + nat_cpoType) (B:=DInf -=> DInf _BOT)
+        <<
+    in1 (A:=bool_cpoType) (B:=nat_cpoType).
     
-  Parameter delta : (DInf -=> DInf) =-> (DInf -=> DInf).
+  Definition inNat : nat_cpoType =-> VInf :=
+    in1 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+        <<
+    in1 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT).
 
-  Parameter delta_simpl : forall (e : DInf -=> DInf),
-      delta e =-= (Roll) <<
-            [| inNat
-               , inFun <<
+  Definition inFun : (DInf -=> DInf _BOT) =-> VInf :=
+    in1 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+        <<
+    in2 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT).
+  
+  Definition inPair : (DInf * DInf) =-> VInf :=
+    in2 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf).
+    
+  Parameter delta : (DInf -=> DInf  _BOT) =-> (DInf -=> DInf  _BOT).
+
+  Parameter delta_simpl : forall (e : DInf -=> DInf  _BOT),
+      delta e =-= kleisli (eta << Roll) <<
+            [| [| eta << inNat
+               , eta << inFun <<
                      ((exp_fun
-                         (CCOMP DInf (DInf) (DInf):cpoCatType _ _)
-                         (e) : cpoCatType _ _)
+                         (CCOMP DInf (DInf _BOT) (DInf _BOT):cpoCatType _ _)
+                         (kleisli e) : cpoCatType _ _)
                         <<
                         ((exp_fun
-                            ((CCOMP DInf (DInf) (DInf)) << SWAP)
-                            e :cpoCatType _ _)))
+                            ((CCOMP DInf (DInf _BOT) (DInf _BOT)) << SWAP)
+                            e :cpoCatType _ _) << KLEISLI))
                 |]
+             , kleisli (eta << inPair) <<
+                       uncurry (Smash DInf DInf) << prod_morph (e, e)
+             |]
             << Unroll.
-  
+
+
+  Parameter delta_eta : delta eta =-= eta.
+  Parameter id_min : eta =-= @FIXP _ delta.
+
 End RecDom.
 
 Module RD : RecDom.
@@ -393,17 +415,7 @@ Defined.
     repeat rewrite <- morph_comp. simpl.
     set (mF0123 := (morph F T0 T1 T2 T3)).
     set (mG0123 := (morph G T0 T1 T2 T3)).
-    set (mF1435 := (moFixpoint R (E: Env) (v: VInf _BOT) : Expr E.
-  destruct v as [[n | f] | p].
-  Focus 2.
-  Check f (Roll (inNat E)).
-  exact (VAL (FUN (R E.+1 (f (Roll (inNat E)))))).
-  (* match v with
-  | inFun f => VAL (FUN (R E.+1 (f (eta (ZVAR _)))))
-  | inPair p => VAL (VAR (ZVAR _))
-  | PBot => VAL (VAR (ZVAR _))
-  end. *) *)
-rph F T1 T4 T3 T5)).
+    set (mF1435 := (morph F T1 T4 T3 T5)).
     set (mG1435 := (morph G T1 T4 T3 T5)).
     set (mF0425 := (morph F T0 T4 T2 T5)).
     set (mG0425 := (morph G T0 T4 T2 T5)).

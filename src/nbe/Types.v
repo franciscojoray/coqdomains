@@ -36,8 +36,7 @@ Notation "★" := (UnitTy) (at level 0, no associativity).
 Notation "'[]'" := (nil LType) (at level 1, no associativity).
 Notation "θ × Γ" := (@cons LType θ _ Γ) (at level 0, right associativity).
 
-Reserved Notation "Γ 'v⊢' v ⦂ θ" (at level 201, no associativity).
-Reserved Notation "Γ 'e⊢' e ⦂ θ" (at level 201, no associativity).
+Reserved Notation "Γ 't⊢' t ⦂ θ" (at level 201, no associativity).
 
 (** VER DE SIMPLIFICAR (YA QUE TODOS LOS TIPOS DE LAS VAR SON UNIT) *)
 Definition lookupType  := 
@@ -52,19 +51,16 @@ end Γ.
 (** SACAR TODO LO DE SEM DE JUICIOS DE TIPADO **)
 
 (** *Definition 43: Typing rules *)
-Inductive TypeJudgeV : forall (E : Env), LCtx E -> V E -> LType -> Type :=
+Inductive TypeJudge : forall (E : Env), LCtx E -> Term E -> LType -> Type :=
 | VarRule  : forall (E : Env) (Γ : LCtx E) (v : Var E),
-             (Γ v⊢ (VAR v) ⦂ (lookupType Γ v))
-| FunRule  : forall (E : Env) (Γ : LCtx E) (e : Expr E.+1) (θ' θ : LType),
-             ((θ' × Γ) e⊢ e ⦂ θ) ->
-             (Γ v⊢ λ e ⦂ (θ' ⇥ θ))
-with TypeJudgeE : forall (E : Env), LCtx E -> Expr E -> LType -> Type :=
-| ValRule : forall (E : Env) (Γ : LCtx E) (v : V E) (θ : LType),
-                               (Γ v⊢ v ⦂ θ) -> (Γ e⊢ (VAL v) ⦂ θ)
-| AppRule : forall (E : Env) (Γ : LCtx E) (v v' : V E) (θ θ' : LType),
-                              (Γ v⊢ v ⦂ (θ' ⇥ θ)) -> (Γ v⊢ v' ⦂ θ') ->
-                              (Γ e⊢ (v @ v') ⦂ θ)
-where "Γ v⊢ v ⦂ θ" := (TypeJudgeV Γ v θ) and "Γ e⊢ e ⦂ θ" := (TypeJudgeE Γ e θ).
+             (Γ t⊢ (VAR v) ⦂ (lookupType Γ v))
+| FunRule  : forall (E : Env) (Γ : LCtx E) (e : Term E.+1) (θ' θ : LType),
+             ((θ' × Γ) t⊢ e ⦂ θ) ->
+             (Γ t⊢ λ e ⦂ (θ' ⇥ θ))
+| AppRule  : forall (E : Env) (Γ : LCtx E) (t t' : Term E) (θ θ' : LType),
+             (Γ t⊢ t ⦂ (θ' ⇥ θ)) -> (Γ t⊢ t' ⦂ θ') ->
+             (Γ t⊢ (t @ t') ⦂ θ)
+where "Γ t⊢ t ⦂ θ" := (TypeJudge Γ t θ).
 
 (** *Definition 44: Intrinsic semantics of types *)
 (* Fixpoint SemType (θ : LType) : cpoType :=
