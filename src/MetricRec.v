@@ -3,7 +3,7 @@
  * Formalizing Domains, Ultrametric Spaces and Semantics of Programming Languages *
  * Nick Benton, Lars Birkedal, Andrew Kennedy and Carsten Varming                 *
  * Jan 2012                                                                       *
- * Build with Coq 8.3pl2 plus SSREFLECT                                           *
+ * Build with Rocq 9.0.1                                                          *
  **********************************************************************************)
 
 (* Categories enriched over bounded complete ultrametric spaces and solving domain
