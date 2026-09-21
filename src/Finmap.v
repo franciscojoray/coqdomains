@@ -447,7 +447,7 @@ move => E C. case: f. elim.
 - case => a b s. move => IH X.
   have X':=X. simpl @map in X'. rewrite sorted_cons in X'. simpl in X'.
   have Y:sorted (map (@fst _ _) s) && uniq (map (@fst _ _) s).
-    rewrite -> (proj2 (andP (proj2 (andP X')))). by rewrite -> (proj2 (andP (proj1 (andP X')))).
+    move/andP: X' => [/andP [Xa Xs] /andP [Xb Xu]]. rewrite Xs Xu. by [].
   specialize (IH Y). specialize (C (mk_findom Y) a b).
   have d:a \notin dom (mk_findom Y). unfold dom. simpl. simpl in X. by apply (proj1 (andP (proj2 (andP X)))).
   specialize (C (proj1 (andP (proj1 (andP X')))) d IH).

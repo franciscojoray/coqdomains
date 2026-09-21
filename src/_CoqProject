@@ -26,4 +26,9 @@ MetricRec.v
 Finmap.v
 FinmapMetric.v
 Fin.v
+KSOp.v
+KSTyping.v
+KSTm.v
+KSTy.v
+KSSem.v
 mpremet.v

@@ -8,7 +8,7 @@
 
 (* Typing relation for kitchen sink language *)
 
-Require Export ssreflect ssrnat. Require Import KSTy. Require Import KSTm.
+Require Export ssreflect. From mathcomp Require Export ssrnat. Require Import KSTy. Require Import KSTm.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Import Prenex Implicits.

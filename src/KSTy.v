@@ -8,7 +8,8 @@
 
 (* Kitchen sink types *)
 
-Require Export ssreflect ssrnat.
+Require Export ssreflect.
+From mathcomp Require Export ssrnat.
 Require Import Program.
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -36,8 +37,8 @@ Module Ty.
   | Arrow: Ty E -> Ty E -> Ty E
   | Ref: Ty E -> Ty E.
 (*=End *)  
-  Implicit Arguments Unit [E].
-  Implicit Arguments Int [E].
+  Arguments Unit {E}.
+  Arguments Int {E}.
 
   Scheme Ty_ind2 := Induction for Ty Sort Prop.
 
@@ -118,8 +119,8 @@ Module Ty.
 
   End MAP. 
 
-  Hint Rewrite mapTVar mapInt mapUnit mapMu mapAll mapProduct mapSum mapArrow mapRef : mapHints.
-  Implicit Arguments id [P].
+  Global Hint Rewrite mapTVar mapInt mapUnit mapMu mapAll mapProduct mapSum mapArrow mapRef : mapHints.
+  Arguments id [P].
 
   Lemma applyId P (ops:Ops P) E : (forall (t : Ty E), mapTy ops (id ops E) t = t).
   Proof. induction t; intros; autorewrite with mapHints; Rewrites liftId. by apply vlvr. Qed.
@@ -213,9 +214,9 @@ Lemma composeSubIdRight : forall E E' (s:Sub E E'), composeSub s (@idSub _) = s.
 Proof. intros. by apply Extensionality. Qed.
 
 Notation "[ x , .. , y ]" := (cons x .. (cons y (@Map.id _ SubOps _)) ..) : Sub_scope. 
-Arguments Scope composeSub [_ _ _ Sub_scope Sub_scope]. 
-Arguments Scope subTy [_ _ Sub_scope]. 
 Delimit Scope Sub_scope with sub.
+Arguments composeSub _ _ _ _%_Sub_scope _%_Sub_scope. 
+Arguments subTy _ _ _%_Sub_scope. 
 
 Lemma composeSingleSub : forall E E' (s:Sub E E') (t:Ty _), composeSub [t] (liftSub s) = cons t s.
 Proof. intros. rewrite composeCons. by rewrite composeSubIdLeft. Qed.

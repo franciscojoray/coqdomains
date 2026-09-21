@@ -37,12 +37,12 @@ Qed.
 
 Module Type RecMet.
 
-Variable W : pcmType.
-Variable Unfold : W =-> findom_pcmType [compType of nat] (halve_pcmType W -=> upred_pcmType CValue).
-Variable Fold : findom_pcmType [compType of nat] (halve_pcmType W -=> upred_pcmType CValue) =-> W.
+Parameter W : pcmType.
+Parameter Unfold : W =-> findom_pcmType [compType of nat] (halve_pcmType W -=> upred_pcmType CValue).
+Parameter Fold : findom_pcmType [compType of nat] (halve_pcmType W -=> upred_pcmType CValue) =-> W.
 
-Variable FU_id : Fold << Unfold =-= Id.
-Variable UF_id : Unfold << Fold =-= Id.
+Parameter FU_id : Fold << Unfold =-= Id.
+Parameter UF_id : Unfold << Fold =-= Id.
 
 End RecMet.
 
@@ -574,7 +574,7 @@ Qed.
 Definition Prod_cons n T : upred_pcmType (Prod T n) * upred_pcmType T =-> upred_pcmType (Prod T n.+1) :=
   Eval hnf in mk_fpcm (@Prod_consM n T).
 
-Implicit Arguments Prod_cons [n T].
+Arguments Prod_cons {n T}.
 
 (*=IVal *)
 

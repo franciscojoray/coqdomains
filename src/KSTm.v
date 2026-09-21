@@ -8,7 +8,8 @@
 
 (* Kitchen sink language, well-scoped by construction *)
 
-Require Export ssreflect ssrnat.
+Require Export ssreflect.
+From mathcomp Require Export ssrnat.
 Require Import Program.
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -53,9 +54,9 @@ with Exp E :=
 (*=End *)
 
 
-Implicit Arguments INT [E].
-Implicit Arguments LOC [E].
-Implicit Arguments UNIT [E].
+Arguments INT {E}.
+Arguments LOC {E}.
+Arguments UNIT {E}.
 
 Scheme Value_ind2 := Induction for Value Sort Prop
   with Exp_ind2   := Induction for Exp Sort Prop.
@@ -167,8 +168,8 @@ Section MAP.
 
 End MAP. 
 
-Hint Rewrite mapVAR mapINT mapLAM mapOP mapVAL mapLET mapAPP mapPAIR mapINL mapINR mapFOLD mapTLAM mapUNIT mapFST mapSND mapBANG mapREF mapASSIGN mapTAPP mapUNFOLD mapCASE : mapHints.
-Implicit Arguments id [P].
+Global Hint Rewrite mapVAR mapINT mapLAM mapOP mapVAL mapLET mapAPP mapPAIR mapINL mapINR mapFOLD mapTLAM mapUNIT mapFST mapSND mapBANG mapREF mapASSIGN mapTAPP mapUNFOLD mapCASE : mapHints.
+Arguments id [P].
 
 Lemma applyId P (ops:Ops P) E : 
      (forall (v : Value E), mapVal ops (id ops E) v = v)
@@ -206,7 +207,8 @@ Lemma applyComposeRen E :
   /\ (forall (e : Exp   E) E' E'' P ops (m:Map.Map P E' E'') (s : Ren E E'),
     Map.mapExp ops (composeRen m s) e = Map.mapExp ops m (renExp s e)).
 Proof.
-move: E ; apply ExpValue_ind; intros; autorewrite with mapHints; Rewrites liftComposeRen. Qed.
+move: E ; apply ExpValue_ind; intros; autorewrite with mapHints; try rewrite liftComposeRen; try rewrite H;
+try rewrite H0; try rewrite H1; auto. Qed.
 
 (*==========================================================================
   Substitution
@@ -274,10 +276,10 @@ Lemma composeSubIdRight : forall E E' (s:Sub E E'), composeSub s (@idSub _) = s.
 Proof. intros. by apply Extensionality. Qed.
 
 Notation "[ x , .. , y ]" := (cons x .. (cons y (@Map.id _ SubOps _)) ..) : Sub_scope. 
-Arguments Scope composeSub [_ _ _ Sub_scope Sub_scope]. 
-Arguments Scope subExp [_ _ Sub_scope]. 
-Arguments Scope subVal [_ _ Sub_scope].
 Delimit Scope Sub_scope with sub.
+Arguments composeSub _ _ _ _%_Sub_scope _%_Sub_scope. 
+Arguments subExp _ _ _%_Sub_scope. 
+Arguments subVal _ _ _%_Sub_scope.
 
 Lemma composeSingleSub : forall E E' (s:Sub E E') (v:Value _), composeSub [v] (liftSub s) = cons v s.
 Proof. intros. rewrite composeCons. by rewrite composeSubIdLeft. Qed.
