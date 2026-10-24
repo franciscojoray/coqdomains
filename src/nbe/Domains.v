@@ -8,6 +8,12 @@
 
 (* Construction of recursive domain for interpreting unityped lambda calculus *)
 
+(* ISSUE-024: call-by-name recursive domain (from the ISSUE-023 spike; the
+   strict domain is kept in `attic/Domains_strict.v`).  The function
+   component is the lifted-argument space `DInf _BOT -=> DInf _BOT`
+   (bifunctor `biFunL`), so a function may receive a divergent argument.
+   Everything else is as in the strict construction. *)
+
 (** new in 8.4! *)
 Set Automatic Coercions Import.
 Unset Automatic Introduction.
@@ -41,7 +47,7 @@ Module Type RecDom.
   Parameter DInf : cpoType.
   
   Definition VInf := discrete_cpoType nat +
-                       (DInf -=> DInf _BOT) +
+                       (DInf _BOT -=> DInf _BOT) +
                     (DInf * DInf).
   Parameter Roll : VInf =-> DInf.
   Parameter Unroll : DInf =-> VInf.
@@ -50,24 +56,24 @@ Module Type RecDom.
   Parameter UR_id : Unroll << Roll =-= Id.
     
   Definition inBool :=
-    in1 (A:=bool_cpoType + nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+    in1 (A:=bool_cpoType + nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf)
         <<
-    in1 (A:=bool_cpoType + nat_cpoType) (B:=DInf -=> DInf _BOT)
+    in1 (A:=bool_cpoType + nat_cpoType) (B:=DInf _BOT -=> DInf _BOT)
         <<
     in1 (A:=bool_cpoType) (B:=nat_cpoType).
     
   Definition inNat : nat_cpoType =-> VInf :=
-    in1 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+    in1 (A:=nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf)
         <<
-    in1 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT).
+    in1 (A:=nat_cpoType) (B:=DInf _BOT -=> DInf _BOT).
 
-  Definition inFun : (DInf -=> DInf _BOT) =-> VInf :=
-    in1 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+  Definition inFun : (DInf _BOT -=> DInf _BOT) =-> VInf :=
+    in1 (A:=nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf)
         <<
-    in2 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT).
+    in2 (A:=nat_cpoType) (B:=DInf _BOT -=> DInf _BOT).
   
   Definition inPair : (DInf * DInf) =-> VInf :=
-    in2 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf).
+    in2 (A:=nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf).
     
   Parameter delta : (DInf -=> DInf  _BOT) =-> (DInf -=> DInf  _BOT).
 
@@ -76,12 +82,12 @@ Module Type RecDom.
             [| [| eta << inNat
                , eta << inFun <<
                      ((exp_fun
-                         (CCOMP DInf (DInf _BOT) (DInf _BOT):cpoCatType _ _)
+                         (CCOMP (DInf _BOT) (DInf _BOT) (DInf _BOT):cpoCatType _ _)
                          (kleisli e) : cpoCatType _ _)
                         <<
-                        ((exp_fun
-                            ((CCOMP DInf (DInf _BOT) (DInf _BOT)) << SWAP)
-                            e :cpoCatType _ _) << KLEISLI))
+                        (exp_fun
+                            ((CCOMP (DInf _BOT) (DInf _BOT) (DInf _BOT)) << SWAP)
+                            (kleisli e) :cpoCatType _ _))
                 |]
              , kleisli (eta << inPair) <<
                        uncurry (Smash DInf DInf) << prod_morph (e, e)
@@ -538,6 +544,69 @@ Defined.
     simpl. rewrite kleisli_unit. rewrite comp_idL. by rewrite kleisli_eta_com.
   Defined.
 
+  (** *Lifted-argument function space (call-by-name), ISSUE-023/024 *)
+
+  (* `biFunL` is `biFun` at a lifted contravariant argument, pre-composed with
+     the lifting of Kleisli morphisms  f : Y → X⊥  ↦  eta << kleisli f :
+     Y⊥ → (X⊥)⊥.  Built from combinators, so it is continuous for free. *)
+
+  Definition liftm (Y X : kcpoBaseCatType) :
+    @cppoMorph kcpoBaseCatType Y X =-> @cppoMorph kcpoBaseCatType (Y _BOT) (X _BOT) :=
+    (exp_fun (CCOMP _ _ _ : cpoCatType _ _) (eta : cpoCatType _ _) : cpoCatType _ _)
+      << KLEISLI.
+
+  Definition bi_funL (X Y Z W : kcpoBaseCatType) :
+    (@cppoMorph kcpoBaseCatType Y X * cppoMorph Z W)
+      =->
+      (@cppoMorph kcpoBaseCatType (fcont_cpoType (X _BOT) (Z _BOT))
+                  (fcont_cpoType (Y _BOT) (W _BOT)))
+    := bi_fun (X _BOT) (Y _BOT) Z W << (liftm Y X >< Id).
+
+  Lemma bi_funL_simpl T0 T2 T4 T5 f g x :
+    (bi_funL T0 T4 T2 T5) (f,g) x =-= Val (kleisli g << (x << kleisli f)).
+  Proof.
+    apply Oeq_trans with
+        (y := Val (kleisli g << (kleisli x << (eta << kleisli f)))); first by [].
+    apply: (fmon_stable eta).
+    apply: fmon_eq_intro => d. simpl.
+    by rewrite -> kleisliVal.
+  Qed.
+
+  Definition biFunL : BiFunctor kcpoBaseCatType.
+    exists (fun X Y => fcont_cpoType (X _BOT) (Y _BOT))
+           (fun X Y Z W => @bi_funL X Y Z W).
+    - move => T0 T1 T2 T3 T4 T5 f g h k. apply: fmon_eq_intro => x.
+      apply Oeq_trans with
+          (y:=kleisli ((bi_funL T1 T4 T3 T5) (f, g)) ((bi_funL T0 T1 T2 T3) (h, k) x));
+        first by [].
+      apply Oeq_trans with
+          (y:=kleisli ((bi_funL T1 T4 T3 T5) (f, g))
+                      (Val (kleisli k << (x << kleisli h)))).
+      { apply: (fmon_stable (kleisli _)). exact: bi_funL_simpl. }
+      rewrite -> kleisliVal.
+      apply Oeq_trans with
+          (y := Val (kleisli g << ((kleisli k << (x << kleisli h)) << kleisli f))).
+      { exact: bi_funL_simpl. }
+      apply Oeq_trans with (y:= (bi_funL T0 T4 T2 T5) (h << f, g << k) x);
+        last by [].
+      apply: Oeq_sym. eapply Oeq_trans; first by exact: bi_funL_simpl.
+      apply: (fmon_stable eta). apply: fmon_eq_intro => d. simpl.
+      have E1 := fmon_eq_elim (kleisli_comp k g) (x (kleisli (h << f) d)).
+      have E2 := fmon_eq_elim (kleisli_comp f h) d.
+      apply Oeq_trans with (y := kleisli g (kleisli k (x (kleisli (h << f) d)))).
+      { apply: Oeq_sym. exact: E1. }
+      apply: (fmon_stable (kleisli g)). apply: (fmon_stable (kleisli k)).
+      apply: (fmon_stable x). apply: Oeq_sym. exact: E2.
+    - move => X Y. apply: fmon_eq_intro => x.
+      eapply Oeq_trans; first by exact: bi_funL_simpl.
+      apply Oeq_trans with (y := Val x); last by [].
+      apply: (fmon_stable eta). apply: fmon_eq_intro => d. simpl.
+      apply Oeq_trans with (y := x (kleisli eta d)).
+      { exact: (fmon_eq_elim (kleisli_unit Y) (x (kleisli eta d))). }
+      apply: (fmon_stable x). exact: (fmon_eq_elim (kleisli_unit X) d).
+  Defined.
+
+
   Definition biVar : BiFunctor kcpoBaseCatType.
     exists (fun X Y => Y) (fun X Y Z W => pi2).
       by [].
@@ -556,14 +625,14 @@ Defined.
   
   Definition FS := biSum (biSum
                            (biConst (discrete_cpoType nat))
-                           biFun
+                           biFunL
                         )
                         (biProd biVar biVar).
 (*=End *)
 (*=DInf *)
   Definition DInf : cpoType := @DInf kcpoBaseCatType kcpoLimit FS leftss.
   Definition VInf := discrete_cpoType nat +
-                    (DInf -=> DInf _BOT) +
+                    (DInf _BOT -=> DInf _BOT) +
                     (DInf * DInf).
   
   Definition Fold : VInf =-> DInf _BOT := Fold kcpoLimit FS leftss.
@@ -578,7 +647,7 @@ Defined.
   Qed.
 
   Lemma ob X Y : ob FS X Y = discrete_cpoType nat +
-                             (X -=> (Y _BOT)) +
+                             ((X _BOT) -=> (Y _BOT)) +
                              (Y * Y).
       by simpl.
   Qed.
@@ -667,36 +736,36 @@ Defined.
   Qed.
 
   Definition inBool :=
-    in1 (A:=bool_cpoType + nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+    in1 (A:=bool_cpoType + nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf)
         <<
-    in1 (A:=bool_cpoType + nat_cpoType) (B:=DInf -=> DInf _BOT)
+    in1 (A:=bool_cpoType + nat_cpoType) (B:=DInf _BOT -=> DInf _BOT)
         <<
     in1 (A:=bool_cpoType) (B:=nat_cpoType).
     
   Definition inNat : nat_cpoType =-> VInf :=
-    in1 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+    in1 (A:=nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf)
         <<
-    in1 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT).
+    in1 (A:=nat_cpoType) (B:=DInf _BOT -=> DInf _BOT).
 
-  Definition inFun : (DInf -=> DInf _BOT) =-> VInf :=
-    in1 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf)
+  Definition inFun : (DInf _BOT -=> DInf _BOT) =-> VInf :=
+    in1 (A:=nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf)
         <<
-    in2 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT).
+    in2 (A:=nat_cpoType) (B:=DInf _BOT -=> DInf _BOT).
   
   Definition inPair : (DInf * DInf) =-> VInf :=
-    in2 (A:=nat_cpoType + (DInf -=> DInf _BOT)) (B:=DInf * DInf).
+    in2 (A:=nat_cpoType + (DInf _BOT -=> DInf _BOT)) (B:=DInf * DInf).
 
   Lemma delta_simpl (e:DInf =-> DInf _BOT) :
       delta e =-= kleisli (eta << Roll) <<
             [| [| eta << inNat
                , eta << inFun <<
                      ((exp_fun
-                         (CCOMP DInf (DInf _BOT) (DInf _BOT):cpoCatType _ _)
+                         (CCOMP (DInf _BOT) (DInf _BOT) (DInf _BOT):cpoCatType _ _)
                          (kleisli e) : cpoCatType _ _)
                         <<
-                        ((exp_fun
-                            ((CCOMP DInf (DInf _BOT) (DInf _BOT)) << SWAP)
-                            e :cpoCatType _ _) << KLEISLI))
+                        (exp_fun
+                            ((CCOMP (DInf _BOT) (DInf _BOT) (DInf _BOT)) << SWAP)
+                            (kleisli e) :cpoCatType _ _))
                 |]
              , kleisli (eta << inPair) <<
                        uncurry (Smash DInf DInf) << prod_morph (e, e)
@@ -716,17 +785,24 @@ Defined.
     (* - Case "Nat". *)
       do 2 rewrite sum_fun_fst.
       repeat rewrite -> kleisli_eta_com. rewrite sum_fun_fst.
-      rewrite <- comp_assoc with (f:=in1 (A:=nat_cpoType) (B:=DInf -=> DInf _BOT)).
+      rewrite <- comp_assoc with (f:=in1 (A:=nat_cpoType) (B:=DInf _BOT -=> DInf _BOT)).
       rewrite sum_fun_fst. rewrite -> comp_assoc.
       rewrite <- comp_assoc. rewrite -> comp_assoc.
       rewrite -> kleisli_eta_com. unfold inNat. by repeat rewrite -> comp_assoc.
     (* - Case "Fun". *)
       rewrite sum_fun_fst. rewrite sum_fun_snd.
       repeat rewrite -> kleisli_eta_com. rewrite sum_fun_fst.
-      rewrite <- comp_assoc with (f:=in2 (B:=DInf -=> DInf _BOT)).
+      rewrite <- comp_assoc with (f:=in2 (B:=DInf _BOT -=> DInf _BOT)).
       rewrite sum_fun_snd. rewrite -> comp_assoc. rewrite <- kleisli_comp2.
       unfold inFun.
-      repeat rewrite -> comp_assoc. by rewrite -> kleisli_eta_com.
+      repeat rewrite -> comp_assoc.
+      (* the biFunL action, pointwise: KLEISLI h << eta = h *)
+      apply: fmon_eq_intro => h. simpl.
+      rewrite -> kleisliVal.
+      have HF : kleisli (id e) << (kleisli h << (eta << kleisli e))
+                =-= kleisli e << (h << kleisli e).
+      { apply: fmon_eq_intro => d. simpl. by rewrite -> kleisliVal. }
+      rewrite -> HF. by [].
     (* - Case "Pair". *)
       rewrite sum_fun_snd. rewrite -> kleisli_eta_com. rewrite sum_fun_snd.
       unfold inPair. by rewrite -> comp_assoc.
@@ -746,3 +822,19 @@ Defined.
   Qed.
 
 End RD.
+
+(** *Sanity check (ISSUE-023/024): non-strict functions are representable *)
+
+Module CBNSanity.
+  Import RD.
+
+  (* a constant function on the *lifted* argument: it maps ⊥ to a value,
+     which the strict domain of `Domains.v` cannot express *)
+  Definition const0 : DInf _BOT -=> DInf _BOT :=
+    const (DInf _BOT) (eta (Roll (inNat 0))).
+
+  Definition nonstrict_fun : VInf := inFun const0.
+
+  Lemma const0_bot : const0 (PBot : DInf _BOT) =-= eta (Roll (inNat 0)).
+  Proof. by []. Qed.
+End CBNSanity.
