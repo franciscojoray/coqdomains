@@ -41,4 +41,6 @@ nbe/SemOps.v
 nbe/SemOpsExt.v
 nbe/Semantics.v
 nbe/Types.v
+nbe/TypedNbE.v
 nbe/Utils.v
+nbe/Validity.v
