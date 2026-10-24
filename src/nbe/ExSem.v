@@ -5,5 +5,8 @@
    (`Require Import ExSem`) keep resolving. *)
 
 Require Export SemOps.
+Require Export SemOpsExt.
 Require Export Semantics.
+Require Export Levels.
+Require Export DomainLemmas.
 (*end hide*)
