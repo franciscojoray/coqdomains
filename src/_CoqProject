@@ -50,3 +50,4 @@ nbe/Weakening.v
 nbe/SemSubst.v
 nbe/LogicalRel.v
 nbe/Correctness.v
+nbe/Completeness.v
