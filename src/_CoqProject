@@ -30,10 +30,13 @@ Fin.v
 mpremet.v
 nbe/Domains.v
 nbe/DomainStuff.v
+nbe/DomainLemmas.v
 nbe/ExSem.v
 nbe/Lang.v
+nbe/Levels.v
 nbe/PredomProd.v
 nbe/SemOps.v
+nbe/SemOpsExt.v
 nbe/Semantics.v
 nbe/Types.v
 nbe/Utils.v
