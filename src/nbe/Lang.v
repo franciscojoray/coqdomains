@@ -17,161 +17,160 @@ Import Prenex Implicits.
 Require Import Program.
 
 (** *)
-(*** Language Definition ***)
+(*** Language Definition (unindexed) ***)
 (** *)
 
 (** *Language Syntax *)
+(* Environment sizes are still needed for the SEMANTIC environments
+   (SemEnv E); they no longer index the syntax. *)
 Definition Env := nat.
 
-Inductive Var : Env -> Type :=
-| ZVAR : forall E, Var (S E)
-| SVAR : forall E, Var E -> Var (S E)
-.
+(* De Bruijn indices as plain naturals; index 0 is the freshest (innermost)
+   variable — the legacy ZVAR.  Terms are context-free: the same term may be
+   discussed in an environment of any size. *)
+Definition Var := nat.
 
-(** *Definition 36: Syntax *)
-Inductive Term E :=
-| VAR : Var E     -> Term E
-| FUN : Term E.+1 -> Term E
-| APP : Term E    -> Term E -> Term E
+(** *Syntax *)
+Inductive Term :=
+| VAR : Var -> Term
+| FUN : Term -> Term
+| APP : Term -> Term -> Term
 .
 
 Scheme Term_induction := Induction for Term Sort Prop.
 
 (** *Notation *)
-Notation "'v⎨' v ⎬" := (VAR v) (at level 202, no associativity).
 Notation "'λ' e" := (FUN e) (at level 1, no associativity).
 Infix "@"        := APP (at level 201, left associativity).
+
+(** *Sanity checks *)
+Check FUN (VAR 0).
+Check APP (VAR 0) (VAR 1).
+Check λ (VAR 0).
+Check λ (APP (VAR 1) (VAR 0 @ VAR 1)).
 
 (*begin hide*)
 (** *MAP Section *)
 Section MAP.
 
-  Variable P : Env -> Type.
-  Definition Map E E' := Var E -> P E'.
-  
+  Variable P : Type.
+  Definition Map := Var -> P.
+
   (* Head, tail and cons *)
-  Definition tlMap E E' (m:Map (E.+1) E') : Map E E' := fun v => m (SVAR v).
-  Definition hdMap E E' (m:Map (E.+1) E') : P E' := m (ZVAR _).
-  
-  Definition consMap E E' (hd: P E') (tl : Map E E') : Map (E.+1) E' :=
-    (fun var =>
-       match var in Var p return (Map (p.-1) E') -> P E' with 
-       | ZVAR _ => fun _ => hd
-       | SVAR _ var' => fun tl' => tl' var'
-       end tl). 
-  
-  Axiom MapExtensional : forall E E' (r1 r2 : Map E E'),
-      (forall var, r1 var = r2 var) -> r1 = r2.
-  
-  Lemma hdConsMap : forall E E' (v : P E') (s : Map E E'), hdMap (consMap v s) = v. 
+  Definition tlMap (m:Map) : Map := fun n => m (S n).
+  Definition hdMap (m:Map) : P := m 0.
+  Definition consMap (hd: P) (tl : Map) : Map :=
+    fun n => match n with
+             | O => hd
+             | S n' => tl n'
+             end.
+
+  Axiom MapExtensional : forall (r1 r2 : Map),
+      (forall n, r1 n = r2 n) -> r1 = r2.
+
+  Lemma hdConsMap : forall (v : P) (s : Map), hdMap (consMap v s) = v.
   Proof. by []. Qed.
-  Lemma tlConsMap : forall E E' (v : P E') (s : Map E E'), tlMap (consMap v s) = s. 
-  Proof. move => E E' v s. by apply MapExtensional. Qed.
+  Lemma tlConsMap : forall (v : P) (s : Map), tlMap (consMap v s) = s.
+  Proof. move => v s. by apply MapExtensional. Qed.
 
   Import Program.
-  Lemma consMapEta : forall E E' (m:Map (E.+1) E'), m = consMap (hdMap m) (tlMap m).
-  Proof. move => E E' m. apply MapExtensional.
-         intro. by dependent destruction var. 
-  Qed.
-  
+  Lemma consMapEta : forall (m:Map), m = consMap (hdMap m) (tlMap m).
+  Proof. move => m. apply MapExtensional. move => n. by case: n. Qed.
+
   (*==========================================================================
     Package of operations used with a Map
-      vr maps a Var into Var or Value (so is either the identity or TVAR)
-      vl maps a Var or Value to a Value (so is either TVAR or the identity)
-      wk weakens a Var or Value (so is either SVAR or renaming through SVAR on a value)
+      vr embeds a Var into P
+      vl maps a P back into a Term
+      wk weakens a P (for going under a binder)
     ==========================================================================*)
   Record MapOps :=
     {
-      vr : forall E, Var E -> P E;   
-      vl : forall E, P E -> Term E;
-      wk : forall E, P E -> P (E.+1);
-      wkvr : forall E (var : Var E), wk (vr var) = vr (SVAR var);
-      vlvr : forall E (var : Var E), vl (vr var) = VAR var
+      vr : Var -> P;
+      vl : P -> Term;
+      wk : P -> P;
+      wkvr : forall (n : Var), wk (vr n) = vr (S n);
+      vlvr : forall (n : Var), vl (vr n) = VAR n
     }.
   Variable ops : MapOps.
-  
-  Definition lift E E' (m : Map E E') : Map (E.+1) (E'.+1) :=
-    (fun var => match var in Var p return Map (p.-1) E' -> P (E'.+1) with
-             | ZVAR _ => fun _ => vr ops (ZVAR _)
-             | SVAR _ x => fun m => wk ops (m x)
-             end m).
-  
-  Definition shiftMap E E' (m : Map E E') : Map E (E'.+1) :=
-    fun var => wk ops (m var).
-  Definition idMap E : Map E E := fun (var : Var E) => vr ops var.
-  
+
+  Definition lift (m : Map) : Map :=
+    fun n => match n with
+             | O => vr ops 0
+             | S n' => wk ops (m n')
+             end.
+
+  Definition shiftMap (m : Map) : Map := fun n => wk ops (m n).
+  Definition idMap : Map := vr ops.
+
   Lemma shiftConsMap :
-    forall E E' (m : Map E E') (x : P E'),
-    shiftMap (consMap x m) = consMap (wk ops x) (shiftMap m). 
-  Proof. intros E E' m x. apply MapExtensional. by dependent destruction var. Qed.
-  
+    forall (m : Map) (x : P),
+    shiftMap (consMap x m) = consMap (wk ops x) (shiftMap m).
+  Proof. intros m x. apply MapExtensional. move => n. by case: n. Qed.
+
   Lemma LiftMapDef :
-    forall E E' (m : Map E' E), lift m = consMap (vr ops (ZVAR _)) (shiftMap m).
-  Proof. intros. apply MapExtensional. by dependent destruction var. Qed.
-  
-  Fixpoint trav {E E'} (t : Term E) (m : Map E E') : Term E' :=
+    forall (m : Map), lift m = consMap (vr ops 0) (shiftMap m).
+  Proof. intros m. apply MapExtensional. move => n. by case: n. Qed.
+
+  Fixpoint trav (t : Term) (m : Map) : Term :=
     match t with
-    | VAR v    => vl ops (m v)
+    | VAR n    => vl ops (m n)
     | FUN e    => FUN (trav e (lift m))
     | APP t r  => APP (trav t m) (trav r m)
     end.
-  
-  Definition mapT E E' m t := @trav E E' t m.
-  
-  Variable E E' : Env.
-  Variable m : Map E E'.
-  
-  Lemma mapVAR : forall (var : Var _),
-      mapT m (VAR var) = vl ops (m var).
+
+  Definition mapT (m : Map) (t : Term) : Term := trav t m.
+
+  Variable m : Map.
+
+  Lemma mapVAR : forall (n : Var), mapT m (VAR n) = vl ops (m n).
   Proof.
     intro. unfold mapT. by unfold trav.
   Qed.
-  
-  Lemma mapFUN : forall (e : Term _),
+
+  Lemma mapFUN : forall (e : Term),
       mapT m (FUN e) = FUN (mapT (lift m) e).
   Proof.
-    intros e. unfold mapT. by simpl.
+    intros e. unfold mapT. by [].
   Qed.
-  
-  Lemma mapAPP : forall (t t' : Term _),
+
+  Lemma mapAPP : forall (t t' : Term),
       mapT m (APP t t') = APP (mapT m t) (mapT m t').
   Proof.
-    intros t t'. unfold mapT. by simpl.
+    intros t t'. unfold mapT. by [].
   Qed.
-    
-  Lemma liftIdMap : lift (@idMap E) = @idMap (E.+1).
+
+  Lemma liftIdMap : lift idMap = idMap.
   Proof.
-    apply MapExtensional. dependent destruction var; [by [] | by apply wkvr].  
+    apply MapExtensional. move => n. case: n; first by []; by apply wkvr.
   Qed.
-  
+
   Lemma idMapDef :
-    @idMap (E.+1) = consMap (vr ops (ZVAR _)) (shiftMap (@idMap E)).
+    idMap = consMap (vr ops 0) (shiftMap idMap).
   Proof.
-    apply MapExtensional. dependent destruction var; first by [].
-    unfold idMap, shiftMap. simpl. by rewrite wkvr.
+    rewrite <- (LiftMapDef idMap). by rewrite liftIdMap.
   Qed.
 
 End MAP.
-  
+
 Hint Rewrite mapVAR mapFUN mapAPP : mapHints.
 
-Arguments idMap [P] _ _ _.
+Arguments idMap [P] _.
 
-Lemma applyIdMap P (ops:MapOps P) E : 
-  forall (t : Term E), mapT ops (idMap ops E) t = t.
+Lemma applyIdMap P (ops:MapOps P) :
+  forall (t : Term), mapT ops (idMap ops) t = t.
 Proof.
   move => t. elim: t.
   - Case VAR.
-      move => E0 v.
+      move => n.
       rewrite -> mapVAR.
       apply vlvr.
   - Case FUN.
-      move => E0 e H.
+      move => e H.
       rewrite -> mapFUN.
-      repeat (rewrite -> liftIdMap).
+      rewrite -> liftIdMap.
         by rewrite -> H.
   - Case APP.
-      move => E0 t1 H t2 H0.
+      move => t1 H t2 H0.
       rewrite -> mapAPP.
       rewrite -> H.
         by rewrite -> H0.
@@ -180,11 +179,11 @@ Qed.
 (** *RENAMING Section *)
 Definition Ren := Map Var.
 
-(** update for 8.4 *)
-Definition RenMapOps := (@Build_MapOps _ (fun _ v => v)
-                                      VAR SVAR
-                                      (fun _ _ => Logic.eq_refl)
-                                      (fun _ _ => Logic.eq_refl)
+(* update for 8.4 *)
+Definition RenMapOps := (@Build_MapOps Var (fun n => n)
+                                      VAR (fun x => S x)
+                                      (fun n => Logic.eq_refl)
+                                      (fun n => Logic.eq_refl)
                        ).
 
 Definition renT := mapT RenMapOps.
@@ -197,33 +196,31 @@ Arguments idRen : clear implicits.
   Composition of renaming
   ==========================================================================*)
 
-Definition composeRen P E E' E''
-           (m : Map P E' E'') (r : Ren E E') : Map P E E''
-  := fun var => m (r var). 
+Definition composeRen P (m : Map P) (r : Ren) : Map P
+  := fun n => m (r n).
 
-Lemma liftComposeRen : forall P ops E E' E''
-                         (m:Map P E' E'') (r:Ren E E'),
+Lemma liftComposeRen : forall P ops (m:Map P) (r:Ren),
     lift ops (composeRen m r) = composeRen (lift ops m) (liftRen r).
-Proof. intros. apply MapExtensional. by dependent destruction var. Qed.
+Proof. intros. apply MapExtensional. move => n. by case: n. Qed.
 
-Lemma applyComposeRen E : 
-  forall (t : Term E) P ops E' E'' (m:Map P E' E'') (s : Ren E E'),
+Lemma applyComposeRen :
+  forall (t : Term) P ops (m:Map P) (s : Ren),
       mapT ops (composeRen m s) t = mapT ops m (renT s t).
 Proof.
   move => t. elim: t.
   - Case VAR.
-      move => E0 v P ops E' E'' m s.
+      move => n P ops m s.
       rewrite -> mapVAR.
       unfold renT. repeat (rewrite -> mapVAR).
         by unfold composeRen.
   - Case FUN.
-      move => E0 e H P ops E' E'' m s.
+      move => e H P ops m s.
       unfold renT.
       repeat (rewrite -> mapFUN).
       repeat (rewrite -> liftComposeRen).
         by rewrite -> H.
   - Case APP.
-      move => E0 t1 H t2 H0 P ops E' E'' m s.
+      move => t1 H t2 H0 P ops m s.
       unfold renT.
       repeat (rewrite -> mapAPP).
       rewrite -> H.
@@ -232,13 +229,12 @@ Qed.
 
 (** *Substitution Section *)
 Definition Sub := Map Term.
-(** update for 8.4 *)
 
 Definition SubMapOps : MapOps Term :=
-  (@Build_MapOps _ VAR (fun _ v => v)
-                 (fun E => renT (fun v => SVAR v))
-                 (fun _ _ => Logic.eq_refl)
-                 (fun _ _ => Logic.eq_refl)
+  (@Build_MapOps Term VAR (fun t => t)
+                 (fun t => renT (fun n => S n) t)
+                 (fun n => Logic.eq_refl)
+                 (fun n => Logic.eq_refl)
   ).
 
 Definition subT := mapT SubMapOps.
@@ -247,13 +243,24 @@ Definition liftSub := lift SubMapOps.
 Definition idSub := idMap SubMapOps.
 Arguments idSub : clear implicits.
 
+(* pointwise reduction of the lifted maps *)
+Lemma liftSub_O : forall (m : Sub), liftSub m 0 = VAR 0.
+Proof. by []. Qed.
+Lemma liftSub_S : forall (m : Sub) (n' : Var),
+    liftSub m (S n') = renT (fun k => S k) (m n').
+Proof. by []. Qed.
+Lemma liftRen_O : forall (r : Ren), liftRen r 0 = 0.
+Proof. by []. Qed.
+Lemma liftRen_S : forall (r : Ren) (n' : Var), liftRen r (S n') = S (r n').
+Proof. by []. Qed.
+
 (** *Notation *)
 Notation "[ x , .. , y ]" :=
-  (consMap x .. (consMap y (idSub _)) ..) : Sub_scope.
+  (consMap x .. (consMap y (idSub)) ..) : Sub_scope.
 Delimit Scope Sub_scope with subst.
-Arguments subT _ _ _%Sub_scope _.
+Arguments subT _%Sub_scope _.
 
-Notation "t ⎧ δ ⎫" := (@subT _ _ δ t) (at level 1, no associativity).
+Notation "t ⎧ δ ⎫" := (subT δ t) (at level 1, no associativity).
 
 Ltac UnfoldRenSub := (unfold subT; unfold renT; unfold liftSub; unfold liftRen).
 Ltac FoldRenSub := (fold subT; fold renT; fold liftSub; fold liftRen).
@@ -263,34 +270,37 @@ Ltac SimplMap := (UnfoldRenSub; autorewrite with mapHints; FoldRenSub).
   Composition of substitution followed by renaming
   ==========================================================================*)
 
-Definition composeRenSub E E' E'' (r : Ren E' E'') (s : Sub E E') : Sub E E'' :=
-  fun var => renT r (s var)
+Definition composeRenSub (r : Ren) (s : Sub) : Sub :=
+  fun n => renT r (s n)
 .
 
-Lemma liftComposeRenSub : forall E E' E'' (r:Ren E' E'') (s:Sub E E'),
+Lemma liftComposeRenSub : forall (r:Ren) (s:Sub),
     liftSub (composeRenSub r s) = composeRenSub (liftRen r) (liftSub s).
 Proof.
-  intros. apply MapExtensional. dependent destruction var; first by [].
-  simpl. unfold composeRenSub. unfold liftSub. unfold renT at 1.
-  rewrite <- (applyComposeRen _). unfold lift. simpl wk. unfold renT.
-  rewrite <- (applyComposeRen _). reflexivity.
+  intros r s. apply MapExtensional. move => n. case: n; first by []. move => n.
+  rewrite liftSub_S. unfold composeRenSub. cbv beta.
+  rewrite liftSub_S.
+  unfold renT at 1 3.
+  rewrite <- (applyComposeRen _). unfold composeRen. cbv beta.
+  rewrite <- (applyComposeRen _). unfold composeRen. cbv beta.
+  by [].
 Qed.
 
-Lemma applyComposeRenSub E : 
-  forall (t : Term E) E' E'' (r : Ren E' E'') (s : Sub E E'),
+Lemma applyComposeRenSub :
+  forall (t : Term) (r : Ren) (s : Sub),
       subT (composeRenSub r s) t = renT r (subT s t).
 Proof.
   move => t. elim: t.
   - Case VAR.
-      move => E0 v E' E'' r s. by SimplMap.
+      move => n r s. by SimplMap.
   - Case FUN.
-      move => E0 e H E' E'' r s.
+      move => e H r s.
       unfold "_ ⎧ _ ⎫".
       rewrite -> mapFUN.
       repeat (rewrite -> liftComposeRenSub).
         by rewrite -> H.
   - Case APP.
-      move => E0 t1 H t2 H0 E' E'' r s.
+      move => t1 H t2 H0 r s.
       unfold "_ ⎧ _ ⎫".
       repeat (rewrite -> mapAPP).
       rewrite -> H.
@@ -301,59 +311,69 @@ Qed.
   Composition of substitutions
   ==========================================================================*)
 
-Definition composeSub E E' E'' (s' : Sub E' E'') (s : Sub E E') : Sub E E''
-  := fun var => subT s' (s var).
-Arguments composeSub _ _ _ _%Sub_scope _%Sub_scope _.
+Definition composeSub (s' : Sub) (s : Sub) : Sub
+  := fun n => subT s' (s n).
+Arguments composeSub _%Sub_scope _%Sub_scope.
 
-Lemma liftComposeSub : forall E E' E'' (s' : Sub E' E'') (s : Sub E E'),
+Lemma liftComposeSub : forall (s' : Sub) (s : Sub),
     liftSub (composeSub s' s) = composeSub (liftSub s') (liftSub s).
 Proof.
-  intros. apply MapExtensional. dependent destruction var; first by []. 
-  unfold composeSub. simpl liftSub.
-  rewrite <- (applyComposeRenSub _). unfold composeRenSub. unfold subT.
-    by rewrite <- (applyComposeRen _).
+  intros s' s. apply MapExtensional. move => n. case: n; first by []. move => n.
+  rewrite liftSub_S. unfold composeSub. cbv beta.
+  rewrite liftSub_S.
+  rewrite <- (applyComposeRenSub _). unfold composeRenSub.
+  unfold subT.
+  rewrite <- (applyComposeRen _). unfold composeRen. cbv beta.
+  by [].
 Qed.
 
-Lemma substComposeSub E :
-  forall (t : Term E) E' E'' (s' : Sub E' E'') (s : Sub E E'),
+Lemma substComposeSub :
+  forall (t : Term) (s' : Sub) (s : Sub),
       subT (composeSub s' s) t = subT s' (subT s t).
-Proof.  
+Proof.
   move => t. elim: t.
   - Case VAR.
-      move => E0 v E' E'' s' s.
+      move => n s' s.
       unfold "_ ⎧ _ ⎫".
         by repeat (rewrite -> mapVAR).
   - Case FUN.
-      move => E0 e H E' E'' s' s.
+      move => e H s' s.
       unfold "_ ⎧ _ ⎫".
       repeat (rewrite -> mapFUN).
       repeat (rewrite -> liftComposeSub).
         by rewrite -> H.
   - Case APP.
-      move => E0 t1 H t2 H0 E' E'' s' s.
+      move => t1 H t2 H0 s' s.
       unfold "_ ⎧ _ ⎫".
       repeat (rewrite -> mapAPP).
       rewrite -> H.
         by rewrite -> H0.
 Qed.
 
-(** updated for 8.4 *)
-Lemma composeCons : forall E E' E'' (s':Sub E' E'') (s:Sub E E') (v:Term _), 
+Lemma composeCons : forall (s' : Sub) (s : Sub) (v : Term),
     composeSub (consMap v s') (liftSub s) = consMap v (composeSub s' s).
-  intros. apply MapExtensional. dependent destruction var; first by [].
-  unfold composeSub. simpl consMap. unfold subT. unfold liftSub.
-  unfold lift. simpl wk. rewrite <- (applyComposeRen _). 
-  unfold composeRen. auto.
+Proof.
+  intros s' s v. apply MapExtensional. move => n. case: n; first by []. move => n.
+  unfold composeSub. cbv beta.
+  rewrite liftSub_S.
+  cbn [consMap].
+  unfold subT.
+  rewrite <- (applyComposeRen _). unfold composeRen. cbv beta iota.
+  by [].
 Qed.
 
-Lemma composeSubIdLeft : forall E E' (s : Sub E E'), composeSub (idSub _) s = s.
-Proof. intros. apply MapExtensional.  intros var.
+Lemma composeSubIdLeft : forall (s : Sub), composeSub (idSub) s = s.
+Proof. intros. apply MapExtensional.  intros n.
        apply (applyIdMap _ _).
 Qed.
 
-Lemma composeSubIdRight : forall E E' (s:Sub E E'), composeSub s (idSub _) = s.
+Lemma composeSubIdRight : forall (s : Sub), composeSub s (idSub) = s.
 Proof.
-  destruct E. by []. by [].
+  by [].
 Qed.
+
+(** *Sanity computations *)
+Compute (renT (fun n => S n) (FUN (VAR 0))).
+Compute (renT (fun n => S n) (APP (VAR 0) (VAR 1))).
 
 (*end hide*)

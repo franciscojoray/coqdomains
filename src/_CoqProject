@@ -33,5 +33,7 @@ nbe/DomainStuff.v
 nbe/ExSem.v
 nbe/Lang.v
 nbe/PredomProd.v
+nbe/SemOps.v
+nbe/Semantics.v
 nbe/Types.v
 nbe/Utils.v
