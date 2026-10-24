@@ -34,7 +34,9 @@ nbe/DomainLemmas.v
 nbe/ExSem.v
 nbe/Lang.v
 nbe/Levels.v
+nbe/NbE.v
 nbe/PredomProd.v
+nbe/Reif.v
 nbe/SemOps.v
 nbe/SemOpsExt.v
 nbe/Semantics.v
