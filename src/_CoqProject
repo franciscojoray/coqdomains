@@ -48,3 +48,5 @@ nbe/Utils.v
 nbe/Validity.v
 nbe/Weakening.v
 nbe/SemSubst.v
+nbe/LogicalRel.v
+nbe/Correctness.v
