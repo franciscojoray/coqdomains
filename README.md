@@ -23,3 +23,16 @@ Build the development with:
 ```
 make -C src
 ```
+
+Repository layout
+-----------------
+
+- `src/nbe` — the unindexed NbE development described above.
+- `src/Predom*.v`, `src/domoprs.v` — the domain-theory substrate used by
+  `nbe/Domains.v` and `nbe/DomainStuff.v`.
+- `src/typed*.v` — the simply typed lambda-calculus formalization of
+  Benton–Birkedal–Kennedy–Varming, kept as an independent historical library.
+- `src/unii*.v` — the untyped lambda-calculus formalization, likewise
+  independent.
+- The remaining unbuilt `KS*`, `mm*` and auxiliary files are legacy material
+  kept for reference and are not part of the default build.
