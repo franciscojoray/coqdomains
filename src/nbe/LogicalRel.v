@@ -18,6 +18,7 @@ Require Import Types.
 Require Import TypedNbE.
 Require Import Validity.
 Require Import TypedEq.
+Require Import EqSubst.
 Require Import NbE.
 Require Import Weakening.
 From Stdlib Require Import List.
@@ -75,25 +76,109 @@ Arguments SubRel : clear implicits.
 
 (** *Basic properties [ISSUE-015d] *)
 
-Lemma TermRel_typed : forall (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType),
-    Gamma ⊩ t ∼ d ⦂ theta -> inhabited (Gamma ⊢ t ⦂ theta).
-Proof. Admitted.
-
 Lemma TermRel_reify : forall (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType),
     Gamma ⊩ t ∼ d ⦂ theta -> ReifRel Gamma t d theta.
-Proof. Admitted.
+Proof.
+  move => Gamma t d theta H. case: theta H => [theta1 theta2 | ] /= H.
+  - exact: (proj1 H).
+  - exact: H.
+Qed.
+
+Lemma TermRel_typed : forall (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType),
+    Gamma ⊩ t ∼ d ⦂ theta -> inhabited (Gamma ⊢ t ⦂ theta).
+Proof.
+  move => Gamma t d theta H.
+  have HR : ReifRel Gamma t d theta.
+  { case: theta H => [theta1 theta2 | ] /= H; [exact: (proj1 H) | exact: H]. }
+  case: (HR nil) => t' [_ HE].
+  case: (EqTm_typed HE) => [[Ht] _].
+  rewrite wk_0 in Ht. by constructor.
+Qed.
+
+(* the reification component is stable under typed equality *)
+Lemma ReifRel_eq : forall (Gamma : LCtx) (t t' : Term) (d : VInf)
+                          (theta : LType),
+    ReifRel Gamma t d theta ->
+    Gamma ⊢ t ≡ t' ⦂ theta ->
+    ReifRel Gamma t' d theta.
+Proof.
+  move => Gamma t t' d theta HR Heq Theta.
+  case: (HR Theta) => t'' [HRd HE].
+  exists t''. split => //.
+  apply: (Eq_trans _ HE).
+  apply: Eq_sym. exact: (@EqTm_wk Theta Gamma t t' theta Heq).
+Qed.
 
 Lemma TermRel_eq : forall (Gamma : LCtx) (t t' : Term) (d : VInf) (theta : LType),
     Gamma ⊩ t ∼ d ⦂ theta ->
     Gamma ⊢ t ≡ t' ⦂ theta ->
     Gamma ⊩ t' ∼ d ⦂ theta.
-Proof. Admitted.
+Proof.
+  move => Gamma t t' d theta.
+  elim: theta Gamma t t' d => [theta1 IH1 theta2 IH2 | ] /=.
+  - move => Gamma t t' d Hrel Heq. case: Hrel => [HR Hfun]. split.
+    + exact: (ReifRel_eq HR Heq).
+    + move => Theta s a Hsa.
+      case: (Hfun Theta s a Hsa) => w [Happ Hrel2].
+      exists w. split => //.
+      case: (TermRel_typed Hsa) => [Hs].
+      have Heqapp :
+        (Theta ++ Gamma) ⊢ APP (wk (length Theta) t) s
+                          ≡ APP (wk (length Theta) t') s ⦂ theta2.
+      { apply: Eq_app.
+        - exact: (@EqTm_wk Theta Gamma t t' (theta1 ⇥ theta2) Heq).
+        - exact: (Eq_refl Hs). }
+      refine (IH2 (Theta ++ Gamma) (APP (wk (length Theta) t) s)
+                  (APP (wk (length Theta) t') s) w _ _).
+      - exact Hrel2.
+      - exact Heqapp.
+  - move => Gamma t t' d Hrel Heq. exact: (ReifRel_eq Hrel Heq).
+Qed.
+
+Lemma ReifRel_weaken : forall (Theta Gamma : LCtx) (t : Term) (d : VInf)
+                              (theta : LType),
+    ReifRel Gamma t d theta ->
+    ReifRel (Theta ++ Gamma) (wk (length Theta) t) d theta.
+Proof.
+  move => Theta Gamma t d theta HR Theta'.
+  case: (HR (Theta' ++ Theta)) => t' [HRd HE].
+  exists t'. split.
+  - rewrite length_app in HRd. rewrite length_app.
+    by rewrite addnA.
+  - have Hterm : wk (length Theta') (wk (length Theta) t)
+                 = wk (length (Theta' ++ Theta)) t.
+    { rewrite length_app. by rewrite wk_wk. }
+    rewrite Hterm.
+    have Hassoc : (Theta' ++ (Theta ++ Gamma)) = ((Theta' ++ Theta) ++ Gamma)
+      by apply: catA.
+    rewrite Hassoc. exact HE.
+Qed.
 
 Lemma TermRel_weaken : forall (Theta Gamma : LCtx) (t : Term) (d : VInf)
                               (theta : LType),
     Gamma ⊩ t ∼ d ⦂ theta ->
     (Theta ++ Gamma) ⊩ wk (length Theta) t ∼ d ⦂ theta.
-Proof. Admitted.
+Proof.
+  move => Theta Gamma t d theta.
+  elim: theta Gamma t d => [theta1 IH1 theta2 IH2 | ] /=.
+  - move => Gamma t d Hrel. case: Hrel => [HR Hfun]. split.
+    + exact: (@ReifRel_weaken Theta Gamma t d (theta1 ⇥ theta2) HR).
+    + move => Theta' s a Hsa.
+      have Hassoc : (Theta' ++ (Theta ++ Gamma)) = ((Theta' ++ Theta) ++ Gamma)
+        by apply: catA.
+      have Hsa' : ((Theta' ++ Theta) ++ Gamma) ⊩ s ∼ a ⦂ theta1.
+      { rewrite -Hassoc. exact Hsa. }
+      case: (Hfun (Theta' ++ Theta) s a Hsa') => w [Happ Hrel2].
+      exists w. split => //.
+      have Hterm : wk (length Theta') (wk (length Theta) t)
+                   = wk (length (Theta' ++ Theta)) t.
+      { rewrite length_app. by rewrite wk_wk. }
+      rewrite -Hterm in Hrel2.
+      rewrite -Hassoc in Hrel2.
+      exact Hrel2.
+  - move => Gamma t d HR.
+    exact: (@ReifRel_weaken Theta Gamma t d UnitTy HR).
+Qed.
 
 (** *Reflection and the identity substitution [ISSUE-015e] *)
 
