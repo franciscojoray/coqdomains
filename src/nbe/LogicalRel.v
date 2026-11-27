@@ -19,6 +19,8 @@ Require Import TypedNbE.
 Require Import Validity.
 Require Import TypedEq.
 Require Import NbE.
+Require Import Weakening.
+From Stdlib Require Import List.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -29,91 +31,107 @@ Import Prenex Implicits.
 (*** Logical relations (paper Defs 8–9, Thm 2) — statements ***)
 (** *)
 
-(* ADMITTED sentences in this module (filled in by ISSUE-015b):
-     - TermRel_readback
-     - Fundamental
+(* ISSUE-015a: the old environment-parametrised relation was false.  The
+   relation below is the Kripke/readback-carrying version; the proofs are
+   filled in by ISSUE-015d … 015f. *)
 
-   The relations are stated *relative to a valid environment* `η` (the
-   "option 1" of the roadmap discussion): this is the paper's general form and
-   avoids the canonical-environment (`ρ_Γ`) gap, which is ISSUE-020.  The `ρ_Γ`
-   specialisation is kept commented out at the bottom of this file.
+(** *Readback-carrying relation *)
 
-   The paper's weakening/monotonicity lemmas (Lemmas 9, 15) use syntactic
-   substitutions `tπ`, which are out of scope for the simple language (see
-   ISSUE-009); they are therefore omitted here. *)
+Definition ReifRel (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType) : Prop :=
+  forall (Theta : LCtx),
+    exists t' : Term,
+      R (length Theta + length Gamma)%N d =-= eta t' /\
+      (Theta ++ Gamma) ⊢ wk (length Theta) t ≡ t' ⦂ theta.
 
-(** *Type relation *)
+(** *Term relation (paper Def. 8) *)
 
-(* The type relation is trivial: `SemType θ = True` for every simple type
-   (there are no type-level values in `VInf`).  Recorded as a deviation from
-   the paper in ISSUE-018. *)
-Definition TypeRel (Γ : LCtx) (θ : LType) : Prop := SemType θ.
-
-(** *Term relation *)
-
-(* Term relation  Γ ⊢ t ∼ d ∈ [θ]  (paper Def. 8, simple-language fragment),
-   relative to a valid environment `η`:
-   - at `★`: `t` denotes `d` and is equal (in `EqTm`) to the readback of `d`;
-   - at `θ1 ⇥ θ2`: `t` denotes `d`, `d` is a semantic function `f`, and the
-     applicative closure holds on related arguments.
-
-   The paper's *neutral* branch of the function clause (used to read variables
-   back at higher types) is deferred to ISSUE-020. *)
-Fixpoint TermRel (Γ : LCtx) (η : SemEnv (length Γ))
-                 (t : Term) (d : VInf) (θ : LType) : Prop :=
-  match θ with
-  | UnitTy =>
-      ⟦ t ⟧ η =-= eta d /\
-      (exists t' : Term, R (length Γ) d =-= eta t' /\ EqTm Γ t t' UnitTy)
-  | FunTy θ1 θ2 =>
-      ⟦ t ⟧ η =-= eta d /\
-      (exists f : DInf _BOT -=> DInf _BOT,
-         d = inFun f /\
-         (forall (s : Term) (e : VInf), @TermRel Γ η s e θ1 ->
-            exists w : VInf,
-              f (eta (Roll e)) =-= Val (Roll w) /\ @TermRel Γ η (APP t s) w θ2))
+Fixpoint TermRel (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType) : Prop :=
+  match theta with
+  | UnitTy => ReifRel Gamma t d UnitTy
+  | FunTy theta1 theta2 =>
+      ReifRel Gamma t d (FunTy theta1 theta2) /\
+      forall (Theta : LCtx) (s : Term) (a : VInf),
+        @TermRel (Theta ++ Gamma) s a theta1 ->
+        exists w : VInf,
+          AppV (d, eta a) =-= eta w /\
+          @TermRel (Theta ++ Gamma) (APP (wk (length Theta) t) s) w theta2
   end.
 
 Arguments TermRel : clear implicits.
 
-(* Pretty notation for the term relation (paper `Γ ⊢ t ∼ d ∈ [X]`).  The
-   environment `η` is shown explicitly, since our relation is env-parametrised.
-   We use `⊩` (not `⊢`) and `⦂` (not `∈ ⟨·⟩`) to avoid collisions with the
-   typing/equality notations and with `SemTm`'s `d ∈ ⟨θ⟩`. *)
-Notation "Γ ; η ⊩ t ∼ d ⦂ θ" := (TermRel Γ η t d θ)
+Notation "Gamma ⊩ t ∼ d ⦂ theta" := (TermRel Gamma t d theta)
   (at level 1, no associativity).
 
-(** *Readback of related terms (paper Lemma 11.2) *)
+(** *Related substitutions (paper Def. 9) *)
 
-(* ADMITTED — the function-type case is expected to need ISSUE-020 (the
-   neutral branch).  The `0 < length Γ` hypothesis is a leftover from the old
-   `R 0 = ⊥` stub (fixed by ISSUE-022); it is dropped when this sentence is
-   restated (ISSUE-015a). *)
-Lemma TermRel_readback :
-  forall (Γ : LCtx) (η : SemEnv (length Γ)) (t : Term) (d : VInf) (θ : LType),
-    0 < length Γ -> Γ ; η ⊩ t ∼ d ⦂ θ ->
-    exists t' : Term, R (length Γ) d =-= eta t' /\ Γ ⊢ t ≡ t' ⦂ θ.
+Definition SubRel (Delta Gamma : LCtx) (sigma : Lang.Sub)
+                  (rho : SemEnv (length Gamma)) : Prop :=
+  forall (v : Var), (v < length Gamma)%N ->
+    exists d : VInf,
+      rho !! v =-= eta d /\
+      @TermRel Delta (sigma v) d (Gamma ∋ v).
+
+Arguments SubRel : clear implicits.
+
+(** *Basic properties [ISSUE-015d] *)
+
+Lemma TermRel_typed : forall (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType),
+    Gamma ⊩ t ∼ d ⦂ theta -> inhabited (Gamma ⊢ t ⦂ theta).
 Proof. Admitted.
 
-(** *Fundamental theorem of logical relations (paper Thm 2) *)
-
-(* ADMITTED — proof deferred to ISSUE-015b.  Env-parametrised form: every
-   well-typed term is logically related to its denotation. *)
-Theorem Fundamental :
-  forall (Γ : LCtx) (t : Term) (θ : LType),
-    (Γ ⊢ t ⦂ θ) -> 0 < length Γ ->
-    forall (η : SemEnv (length Γ)), Γ ⊨ η ->
-      exists d : VInf, Γ ; η ⊩ t ∼ d ⦂ θ.
+Lemma TermRel_reify : forall (Gamma : LCtx) (t : Term) (d : VInf) (theta : LType),
+    Gamma ⊩ t ∼ d ⦂ theta -> ReifRel Gamma t d theta.
 Proof. Admitted.
 
-(* REMOVED (kept commented, pending ISSUE-020): the `ρ_Γ` specialisation of the
-   fundamental theorem uses the canonical environment, whose validity
-   (`SemCtx_id_env`) is false in the present encoding.  Restore it together
-   with `SemCtx_id_env` once `VInf` gains neutral values:
-
-Theorem Fundamental_id_env :
-  forall (Γ : LCtx) (t : Term) (θ : LType),
-    (Γ ⊢ t ⦂ θ) -> 0 < length Γ ->
-    exists d : VInf, Γ ; (id_env (length Γ)) ⊩ t ∼ d ⦂ θ.
+Lemma TermRel_eq : forall (Gamma : LCtx) (t t' : Term) (d : VInf) (theta : LType),
+    Gamma ⊩ t ∼ d ⦂ theta ->
+    Gamma ⊢ t ≡ t' ⦂ theta ->
+    Gamma ⊩ t' ∼ d ⦂ theta.
 Proof. Admitted.
-*)
+
+Lemma TermRel_weaken : forall (Theta Gamma : LCtx) (t : Term) (d : VInf)
+                              (theta : LType),
+    Gamma ⊩ t ∼ d ⦂ theta ->
+    (Theta ++ Gamma) ⊩ wk (length Theta) t ∼ d ⦂ theta.
+Proof. Admitted.
+
+(** *Reflection and the identity substitution [ISSUE-015e] *)
+
+Lemma TermRel_reflect : forall (Gamma : LCtx) (t : Term) (d : VInf)
+                               (theta : LType),
+    NeV d -> ReifRel Gamma t d theta -> Gamma ⊩ t ∼ d ⦂ theta.
+Proof. Admitted.
+
+Lemma TermRel_var : forall (Gamma : LCtx) (v : Var),
+    (v < length Gamma)%N ->
+    Gamma ⊩ VAR v ∼ inNat (length Gamma - v.+1) ⦂ (Gamma ∋ v).
+Proof. Admitted.
+
+Lemma SubRel_weaken : forall (Theta Delta Gamma : LCtx) (sigma : Lang.Sub)
+                             (rho : SemEnv (length Gamma)),
+    SubRel Delta Gamma sigma rho ->
+    SubRel (Theta ++ Delta) Gamma (fun n => wk (length Theta) (sigma n)) rho.
+Proof. Admitted.
+
+Lemma SubRel_ext : forall (Delta Gamma : LCtx) (sigma : Lang.Sub)
+                          (rho : SemEnv (length Gamma)) (s : Term) (a : VInf)
+                          (theta : LType),
+    SubRel Delta Gamma sigma rho ->
+    Delta ⊩ s ∼ a ⦂ theta ->
+    SubRel Delta (theta × Gamma) (consMap s sigma) (rho, eta a).
+Proof. Admitted.
+
+Lemma SubRel_id : forall (Gamma : LCtx),
+    SubRel Gamma Gamma idSub (id_env (length Gamma)).
+Proof. Admitted.
+
+(** *Fundamental theorem (paper Thm 2) [ISSUE-015f] *)
+
+Theorem Fundamental : forall (Gamma : LCtx) (t : Term) (theta : LType),
+    (Gamma ⊢ t ⦂ theta) ->
+    forall (Delta : LCtx) (sigma : Lang.Sub) (rho : SemEnv (length Gamma)),
+      SubRel Delta Gamma sigma rho ->
+      exists d : VInf,
+        ⟦ t ⟧ rho =-= eta d /\
+        Delta ⊩ subT sigma t ∼ d ⦂ theta.
+Proof. Admitted.
