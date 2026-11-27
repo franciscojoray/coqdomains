@@ -185,18 +185,79 @@ Qed.
 Lemma TermRel_reflect : forall (Gamma : LCtx) (t : Term) (d : VInf)
                                (theta : LType),
     NeV d -> ReifRel Gamma t d theta -> Gamma ⊩ t ∼ d ⦂ theta.
-Proof. Admitted.
+Proof.
+  move => Gamma t d theta.
+  elim: theta Gamma t d => [theta1 IH1 theta2 IH2 | ] /=.
+  - move => Gamma t d Hne HR. split.
+    + exact HR.
+    + move => Theta s a Hsa.
+      exists (inPair (Roll d, Roll a)). split.
+      * exact: (@NeV_AppV d a Hne).
+      * apply: (IH2 (Theta ++ Gamma) (APP (wk (length Theta) t) s)
+                  (inPair (Roll d, Roll a))).
+        -- exact: (@NeV_app d a Hne).
+        -- move => Theta'.
+           case: (HR (Theta' ++ Theta)) => tf [HRd HEf].
+           have Hsa_w : (Theta' ++ (Theta ++ Gamma)) ⊩ wk (length Theta') s ∼ a ⦂ theta1.
+           { exact: (@TermRel_weaken Theta' (Theta ++ Gamma) s a theta1 Hsa). }
+           case: (TermRel_reify Hsa_w nil) => sf [HRa HEs].
+           simpl in HEs.
+           rewrite wk_0 in HEs.
+           have Hindexa : (length [::] + length (Theta' ++ Theta ++ Gamma))%N
+                          = (length Theta' + length (Theta ++ Gamma))%N.
+           { by rewrite !length_app. }
+           rewrite Hindexa in HRa.
+           have Hindex : (length (Theta' ++ Theta) + length Gamma)%N
+                         = (length Theta' + length (Theta ++ Gamma))%N.
+           { by rewrite !length_app addnA. }
+           rewrite Hindex in HRd.
+           have HRapp := @R_neutral_app (length Theta' + length (Theta ++ Gamma))%N
+                                          d a tf sf HRd HRa.
+           exists (APP tf sf). split => //.
+           have Hassoc : (Theta' ++ (Theta ++ Gamma)) = ((Theta' ++ Theta) ++ Gamma)
+             by apply: catA.
+           rewrite -Hassoc in HEf.
+           have Hterm : wk (length Theta') (wk (length Theta) t)
+                        = wk (length (Theta' ++ Theta)) t.
+           { rewrite length_app. by rewrite wk_wk. }
+           rewrite -Hterm in HEf.
+           rewrite wk_APP.
+           apply: Eq_app.
+           ++ exact HEf.
+           ++ exact HEs.
+  - move => Gamma t d Hne HR. exact HR.
+Qed.
 
 Lemma TermRel_var : forall (Gamma : LCtx) (v : Var),
     (v < length Gamma)%N ->
     Gamma ⊩ VAR v ∼ inNat (length Gamma - v.+1) ⦂ (Gamma ∋ v).
-Proof. Admitted.
+Proof.
+  move => Gamma v Hv.
+  apply: TermRel_reflect.
+  - exact: NeV_var.
+  - move => Theta.
+    exists (VAR (v + length Theta)%N).
+    split.
+    + exact: (@R_var_ext Gamma (length Theta) v Hv).
+    + rewrite wk_VAR.
+      have Hty : (Theta ++ Gamma) ⊢ VAR (v + length Theta)%N
+                   ⦂ ((Theta ++ Gamma) ∋ (v + length Theta)%N).
+      { apply: VarRule. rewrite length_app. rewrite addnC.
+        by rewrite ltn_add2l. }
+      rewrite (lookupType_app Theta Gamma v) in Hty.
+      exact: (Eq_refl Hty).
+Qed.
 
 Lemma SubRel_weaken : forall (Theta Delta Gamma : LCtx) (sigma : Lang.Sub)
                              (rho : SemEnv (length Gamma)),
     SubRel Delta Gamma sigma rho ->
     SubRel (Theta ++ Delta) Gamma (fun n => wk (length Theta) (sigma n)) rho.
-Proof. Admitted.
+Proof.
+  move => Theta Delta Gamma sigma rho Hsub v Hv.
+  case: (Hsub v Hv) => d [Hrho Hrel].
+  exists d. split => //.
+  exact: (@TermRel_weaken Theta Delta (sigma v) d (Gamma ∋ v) Hrel).
+Qed.
 
 Lemma SubRel_ext : forall (Delta Gamma : LCtx) (sigma : Lang.Sub)
                           (rho : SemEnv (length Gamma)) (s : Term) (a : VInf)
@@ -204,11 +265,39 @@ Lemma SubRel_ext : forall (Delta Gamma : LCtx) (sigma : Lang.Sub)
     SubRel Delta Gamma sigma rho ->
     Delta ⊩ s ∼ a ⦂ theta ->
     SubRel Delta (theta × Gamma) (consMap s sigma) (rho, eta a).
-Proof. Admitted.
+Proof.
+  move => Delta Gamma sigma rho s a theta Hsub Hrel v Hv.
+  case: v Hv => [ |v'] Hv.
+  - exists a. split.
+    + exact: (@SemVar0 (length Gamma) rho (eta a)).
+    + rewrite lookupType_cons_0. simpl. exact Hrel.
+  - rewrite length_cons ltnS in Hv.
+    case: (Hsub v' Hv) => d [Hrho Hrel'].
+    exists d. split.
+    + rewrite -> (@SemVarS v' (length Gamma) rho (eta a)). exact Hrho.
+    + rewrite lookupType_cons_S. simpl. exact Hrel'.
+Qed.
+
+(* lookup in the canonical environment at the actual context length *)
+Lemma SemVar_id_env_at : forall (Gamma : LCtx) (v : Var),
+    (v < length Gamma)%N ->
+    (id_env (length Gamma)) !! v =-= eta (inNat (length Gamma - v.+1)).
+Proof.
+  move => Gamma. elim: Gamma => [ |θ Gamma IH] v Hv.
+  - done.
+  - simpl in Hv. case: v Hv => [ |n] Hv.
+    + simpl. by rewrite subn1.
+    + simpl. rewrite (IH n Hv). f_equal. by rewrite subSS.
+Qed.
 
 Lemma SubRel_id : forall (Gamma : LCtx),
     SubRel Gamma Gamma idSub (id_env (length Gamma)).
-Proof. Admitted.
+Proof.
+  move => Gamma v Hv.
+  exists (inNat (length Gamma - v.+1)). split.
+  - exact: (SemVar_id_env_at Hv).
+  - apply: TermRel_var. exact Hv.
+Qed.
 
 (** *Fundamental theorem (paper Thm 2) [ISSUE-015f] *)
 
