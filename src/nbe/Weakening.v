@@ -10,6 +10,7 @@ Unset Automatic Introduction.
 (** endof new in 8.4 *)
 
 Require Import Types.
+From Stdlib Require Import List.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -84,6 +85,90 @@ Lemma TypeJudge_weaken : forall (θ' : LType) (Γ : LCtx) (t : Term) (θ : LType
 Proof.
   move => θ' Γ t θ H. apply: (TypeJudge_ren H). exact: RenOK_shift.
 Qed.
+
+(** *Weakening by a context extension (ISSUE-015c) *)
+
+(* Add `k` fresh variables in front of the context.  On de Bruijn indices this
+   is the renaming `n ↦ n + k`. *)
+Definition wk (k : nat) (t : Term) : Term := renT (fun n => n + k) t.
+
+(* lookup in an extended context *)
+Lemma lookupType_app : forall (Theta Gamma : LCtx) (v : Var),
+    (Theta ++ Gamma) ∋ (v + length Theta) = Gamma ∋ v.
+Proof.
+  elim => [|θ Theta IH] Gamma v; first by rewrite addn0.
+  by rewrite /= addnS IH.
+Qed.
+
+(* the renaming induced by a context extension is well typed *)
+Lemma RenOK_app : forall (Theta Gamma : LCtx),
+    RenOK (Theta ++ Gamma) Gamma (fun n => n + length Theta).
+Proof.
+  move => Theta Gamma v Hv. split.
+  - rewrite length_app. rewrite addnC. by rewrite ltn_add2l.
+  - by rewrite (lookupType_app Theta Gamma v).
+Qed.
+
+Lemma TypeJudge_wk : forall (Theta Gamma : LCtx) (t : Term) (θ : LType),
+    (Gamma ⊢ t ⦂ θ) -> ((Theta ++ Gamma) ⊢ wk (length Theta) t ⦂ θ).
+Proof.
+  move => Theta Gamma t θ H. unfold wk.
+  apply: (TypeJudge_ren H). exact: RenOK_app.
+Qed.
+
+Lemma wk_VAR : forall (k n : Var), wk k (VAR n) = VAR (n + k).
+Proof. move => k n. unfold wk, renT. by rewrite mapVAR. Qed.
+
+Lemma wk_APP : forall (k : nat) (t1 t2 : Term),
+    wk k (APP t1 t2) = APP (wk k t1) (wk k t2).
+Proof. move => k t1 t2. unfold wk, renT. by rewrite !mapAPP. Qed.
+
+Lemma wk_FUN : forall (k : nat) (e : Term),
+    wk k (FUN e) = FUN (renT (liftRen (fun n => n + k)) e).
+Proof. move => k e. unfold wk, renT. by rewrite mapFUN. Qed.
+
+Lemma wk_0 : forall (t : Term), wk 0 t = t.
+Proof.
+  move => t. unfold wk.
+  have -> : (fun n : Var => n + 0) = idRen by
+    apply: MapExtensional; move => n; by rewrite addn0.
+  exact: (applyIdMap RenMapOps t).
+Qed.
+
+Lemma wk_wk : forall (k k' : nat) (t : Term),
+    wk k (wk k' t) = wk (k + k') t.
+Proof.
+  move => k k' t. unfold wk, renT.
+  change (mapT RenMapOps (fun n : Var => n + k)
+            (renT (fun n : Var => n + k') t) =
+          mapT RenMapOps (fun n : Var => n + (k + k')) t).
+  rewrite <- (applyComposeRen t RenMapOps (fun n => n + k) (fun n => n + k')).
+  have -> : composeRen (fun n : Var => n + k) (fun n : Var => n + k')
+              = (fun n : Var => n + (k + k')).
+  { apply: MapExtensional. move => n. rewrite /composeRen /=.
+    rewrite -addnA. by rewrite (addnC k' k). }
+  reflexivity.
+Qed.
+
+(* weakening commutes with substitution *)
+Lemma wk_subT : forall (k : nat) (σ : Sub) (t : Term),
+    wk k (subT σ t) = subT (fun n => wk k (σ n)) t.
+Proof.
+  move => k σ t. unfold wk. symmetry.
+  exact: (applyComposeRenSub t (fun n => n + k) σ).
+Qed.
+
+(* the substitution identity needed by the FUN case of the Fundamental theorem *)
+Lemma subT_lift_single : forall (s : Term) (τ : Sub) (e : Term),
+    subT (consMap s idSub) (subT (liftSub τ) e) = subT (consMap s τ) e.
+Proof.
+  move => s τ e.
+  rewrite <- (substComposeSub e (consMap s idSub) (liftSub τ)).
+  rewrite composeCons. rewrite composeSubIdLeft. reflexivity.
+Qed.
+
+Lemma subT_id : forall (t : Term), subT idSub t = t.
+Proof. move => t. exact: (applyIdMap SubMapOps t). Qed.
 
 (** *Typed substitutions (step B) *)
 

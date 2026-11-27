@@ -83,6 +83,15 @@ Proof.
   move => θ' Γ t t' θ H. apply: (EqTm_ren H). exact: RenOK_shift.
 Qed.
 
+(* equality is stable under a context extension (ISSUE-015c) *)
+Lemma EqTm_wk : forall (Theta Gamma : LCtx) (t t' : Term) (θ : LType),
+    Gamma ⊢ t ≡ t' ⦂ θ ->
+    (Theta ++ Gamma) ⊢ wk (length Theta) t ≡ wk (length Theta) t' ⦂ θ.
+Proof.
+  move => Theta Gamma t t' θ H.
+  apply: (EqTm_ren H). exact: RenOK_app.
+Qed.
+
 (** *Sanity check *)
 
 (* weakening a β-step: in context ★ × nil, (λ.0) 0 ≡ 0; after weakening by a
