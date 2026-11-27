@@ -19,6 +19,7 @@ Require Import TypedNbE.
 Require Import Validity.
 Require Import TypedEq.
 Require Import NbE.
+Require Import Weakening.
 Require Import LogicalRel.
 
 Set Implicit Arguments.
@@ -30,37 +31,26 @@ Import Prenex Implicits.
 (*** Correctness of NbE (paper Thm 3) — statement ***)
 (** *)
 
-(* ADMITTED sentence in this module (filled in by ISSUE-016b):
-     - Correctness
-
-   `Correctness_sem` below is *proved* from the two 015a sentences; the `ρ_Γ`
-   statement `Correctness` uses `nbe` (hence the canonical environment) and is
-   pending ISSUE-020. *)
-
-(** *Semantic (env-parametrised) correctness *)
-
-(* Every well-typed term is equal (in the typed equality judgement) to the
-   readback of its value.  PROVED from `Fundamental` + `TermRel_readback`. *)
-Lemma Correctness_sem :
-  forall (Γ : LCtx) (t : Term) (θ : LType),
-    (Γ ⊢ t ⦂ θ) -> 0 < length Γ ->
-    forall (η : SemEnv (length Γ)), Γ ⊨ η ->
-      exists t' : Term, Γ ⊢ t ≡ t' ⦂ θ.
-Proof.
-  move => Γ t θ Ht Hpos η Hη.
-  case: (Fundamental Ht Hpos Hη) => d Hd.
-  case: (TermRel_readback Hpos Hd) => t' [_ HE].
-  by exists t'.
-Qed.
+(* ISSUE-016b: `Correctness` is PROVED.  This is the `ρ_Γ` instance (via
+   `nbe`); `t'` is the normal form read back from `nbe |Γ| t`.  No
+   `0 < length Γ` hypothesis: `R 0` is the paper's `R_0` (ISSUE-022), so
+   closed terms are covered. *)
 
 (** *Correctness of NbE at the canonical environment (paper Thm 3) *)
-
-(* ADMITTED — this is the `ρ_Γ` instance (via `nbe`); it is expected to need
-   ISSUE-020 (`SemCtx_id_env`).  `t'` is the normal form read back from
-   `nbe |Γ| t`.  No `0 < length Γ` hypothesis: `R 0` is the paper's `R_0`
-   (ISSUE-022), so closed terms are covered. *)
 Theorem Correctness :
   forall (Γ : LCtx) (t : Term) (θ : LType),
     (Γ ⊢ t ⦂ θ) ->
     exists t' : Term, nbe (length Γ) t =-= eta t' /\ Γ ⊢ t ≡ t' ⦂ θ.
-Proof. Admitted.
+Proof.
+  move => Γ t θ Ht.
+  case: (@Fundamental Γ t θ Ht Γ idSub (id_env (length Γ))
+            (@SubRel_id Γ)) => d [Hden Hrel].
+  rewrite subT_id in Hrel.
+  case: (TermRel_reify Hrel nil) => t' [Hread HEq].
+  simpl in HEq. rewrite wk_0 in HEq.
+  exists t'. split => //.
+  unfold nbe.
+  apply Oeq_trans with (y := KLEISLI (R (length Γ)) (eta d)).
+  - apply: KLEISLI_eq_arg. exact Hden.
+  - rewrite (KLEISLI_etaVal (R (length Γ)) d). exact Hread.
+Qed.

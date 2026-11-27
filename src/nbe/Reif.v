@@ -17,6 +17,7 @@ Require Import DomainLemmas.
 Require Import SemOps.
 Require Import Semantics.
 Require Import Levels.
+Require Import Types.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Import Prenex Implicits.
@@ -197,6 +198,24 @@ Proof.
   by rewrite subSS.
 Qed.
 
+(* variable v of Γ reads back, in an extension Θ ++ Γ, as its weakening *)
+
+Lemma R_var_ext : forall (Γ : LCtx) (k v : nat),
+    (v < length Γ)%N ->
+    R (k + length Γ)%N (inNat (length Γ - v.+1)) =-= eta (VAR (v + k)%N).
+Proof.
+  move => Γ k v Hv.
+  rewrite R_var.
+  f_equal.
+  have Hle := ltnW Hv.
+  have Hpred : (length Γ - v.+1).+1 = length Γ - v.
+  { rewrite subnS. apply prednK. by rewrite subn_gt0. }
+  rewrite Hpred.
+  rewrite (subnBA (k + length Γ) Hle).
+  rewrite addnAC. rewrite addnK.
+  by rewrite addnC.
+Qed.
+
 (* pointwise Var-branch behaviour of the fixpoint *)
 
 Lemma R1_inNat : forall n, R 1 (inNat n) =-= eta (VAR (0 - n)).
@@ -240,7 +259,7 @@ Proof.
   { apply Oeq_trans with (y := eta (Unroll (Roll v))).
     - apply Oeq_trans with (y := kleisli (eta << Unroll) (Val (Roll v))).
       + by apply kleisli_eq_arg.
-      + rewrite -> kleisliVal. rewrite -> comp_simpl. by [].
+      + rewrite -> kleisliVal. rewrite -> comp_simpl. by done.
     - apply StreamVal_eq.
       have X := fmon_eq_elim UR_id v.
       exact X. }

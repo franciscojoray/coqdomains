@@ -35,8 +35,7 @@ Import Prenex Implicits.
 (* ISSUE-017b: all three sentences are PROVED.
      - Completeness  — closed (from `EqTm_sem` at `id_env`, CBN model)
      - Lemma8_typed  — closed (via `nf_readback`)
-     - Reflection    — proved from `Correctness`, hence depends on it until
-                       ISSUE-016b closes (`Print Assumptions` lists it)
+     - Reflection    — closed from `Correctness` (ISSUE-016b)
    They carry no `0 < length Γ` hypothesis: `R 0` is the paper's `R_0`
    (ISSUE-022). *)
 
@@ -179,12 +178,8 @@ Qed.
    is Leibniz equality (`discrete_eq`), so `t1 = t2`.  Then
      Γ ⊢ t ≡ t1 ≡ t'       (Eq_trans, Eq_sym).
 
-   Typing hypotheses are needed only to apply `Correctness`.
-
-   Dependency.  The proof is complete, but `Correctness` is still admitted
-   (ISSUE-016b, which depends on the logical relation of ISSUE-015), so
-   `Print Assumptions Reflection` lists it.  Once 016b is proved,
-   `Reflection` becomes closed with no change here. *)
+   Typing hypotheses are needed only to apply `Correctness`, which is now
+   proved (ISSUE-016b). *)
 Theorem Reflection :
   forall (Γ : LCtx) (t t' : Term) (θ : LType),
     (Γ ⊢ t ⦂ θ) -> (Γ ⊢ t' ⦂ θ) ->
