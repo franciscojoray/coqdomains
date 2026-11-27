@@ -222,6 +222,42 @@ Proof.
     + exact: (IH2 Δ σ Hσ).
 Qed.
 
+(* A proposition-valued variant of `SubOK`, useful when the substitution
+   relation is only known propositionally (logical relations). *)
+Definition SubOKP (Δ Γ : LCtx) (σ : Sub) : Prop :=
+  forall (v : Var), (v < length Γ)%N -> inhabited (Δ ⊢ (σ v) ⦂ (Γ ∋ v)).
+
+Lemma SubOKP_lift : forall (θ : LType) (Δ Γ : LCtx) (σ : Sub),
+    SubOKP Δ Γ σ -> SubOKP (θ × Δ) (θ × Γ) (liftSub σ).
+Proof.
+  move => θ Δ Γ σ H v Hv.
+  rewrite length_cons ltnS in Hv.
+  case: v Hv => [ |v'] Hv.
+  - apply: inhabits. rewrite liftSub_O. apply: VarRule. done.
+  - case: (H v' Hv) => [Hty].
+    apply: inhabits. rewrite liftSub_S.
+    apply: TypeJudge_weaken. exact Hty.
+Qed.
+
+Lemma TypeJudge_subP : forall (Γ : LCtx) (t : Term) (θ : LType),
+    (Γ ⊢ t ⦂ θ) ->
+    forall (Δ : LCtx) (σ : Sub), SubOKP Δ Γ σ ->
+      inhabited (Δ ⊢ (subT σ t) ⦂ θ).
+Proof.
+  move => Γ t θ H. elim: H.
+  - (* VarRule *) move => Γ0 v Hv Δ σ Hσ.
+    exact: (Hσ v Hv).
+  - (* FunRule *) move => Γ0 e θ' θ0 He IHe Δ σ Hσ.
+    case: (IHe (θ' × Δ) (liftSub σ) (SubOKP_lift Hσ)) => [Hty].
+    apply: inhabits. unfold subT. rewrite mapFUN.
+    apply: FunRule. exact Hty.
+  - (* AppRule *) move => Γ0 t1 t2 θ0 θ' H1 IH1 H2 IH2 Δ σ Hσ.
+    case: (IH1 Δ σ Hσ) => [Hty1].
+    case: (IH2 Δ σ Hσ) => [Hty2].
+    apply: inhabits. unfold subT. rewrite mapAPP.
+    apply: AppRule; [exact Hty1 | exact Hty2].
+Qed.
+
 (* the β-rule's right-hand side is well typed (needed by `Eq_beta`) *)
 Lemma TypeJudge_beta : forall (Γ : LCtx) (e r : Term) (θ' θ : LType),
     ((θ' × Γ) ⊢ e ⦂ θ) -> (Γ ⊢ r ⦂ θ') ->

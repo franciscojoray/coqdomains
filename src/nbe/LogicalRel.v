@@ -290,6 +290,32 @@ Proof.
     + simpl. rewrite (IH n Hv). f_equal. by rewrite subSS.
 Qed.
 
+Lemma SubRel_lift : forall (theta : LType) (Delta Gamma : LCtx)
+                           (sigma : Lang.Sub) (rho : SemEnv (length Gamma))
+                           (a : VInf),
+    SubRel Delta Gamma sigma rho ->
+    (theta × Delta) ⊩ VAR 0 ∼ a ⦂ theta ->
+    SubRel (theta × Delta) (theta × Gamma) (liftSub sigma) (rho, eta a).
+Proof.
+  move => theta Delta Gamma sigma rho a Hsub Hvar v Hv.
+  rewrite length_cons ltnS in Hv.
+  case: v Hv => [ |v'] Hv.
+  - exists a. split.
+    + exact: (@SemVar0 (length Gamma) rho (eta a)).
+    + rewrite lookupType_cons_0. simpl. exact Hvar.
+  - case: (Hsub v' Hv) => d [Hrho Hrel].
+    exists d. split.
+    + rewrite -> (@SemVarS v' (length Gamma) rho (eta a)). exact Hrho.
+    + rewrite lookupType_cons_S. rewrite liftSub_S.
+      have Hw : (theta × Delta) ⊩ wk (length (theta × nil)) (sigma v') ∼ d
+                  ⦂ (Gamma ∋ v').
+      { exact: (@TermRel_weaken (theta × nil) Delta (sigma v') d (Gamma ∋ v') Hrel). }
+      simpl in Hw.
+      have Hren : (fun k : Var => S k) = (fun n : Var => (n + 1)%N)
+        by apply: MapExtensional; move => n; by rewrite addn1.
+      rewrite Hren. exact Hw.
+Qed.
+
 Lemma SubRel_id : forall (Gamma : LCtx),
     SubRel Gamma Gamma idSub (id_env (length Gamma)).
 Proof.
@@ -297,6 +323,44 @@ Proof.
   exists (inNat (length Gamma - v.+1)). split.
   - exact: (SemVar_id_env_at Hv).
   - apply: TermRel_var. exact Hv.
+Qed.
+
+Lemma SubRel_SubOKP : forall (Delta Gamma : LCtx) (sigma : Lang.Sub)
+                             (rho : SemEnv (length Gamma)),
+    SubRel Delta Gamma sigma rho -> SubOKP Delta Gamma sigma.
+Proof.
+  move => Delta Gamma sigma rho H v Hv.
+  case: (H v Hv) => d [_ Hrel].
+  exact: (TermRel_typed Hrel).
+Qed.
+
+(* the semantic beta step at the value level, used by the FUN case *)
+Lemma AppV_inFun_F : forall (E : Env) (e : Term) (rho : SemEnv E) (a : VInf),
+    AppV (inFun (F (@SemT E.+1 e) rho), eta a) =-= @SemT E.+1 e (rho, eta a).
+Proof.
+  move => E e rho a.
+  rewrite -> AppV_fun.
+  apply Oeq_trans with
+      (y := KUR (KR (@SemT E.+1 e (rho, KUR (KR (eta a)))))).
+  { unfold KUR, KR. apply: kleisli_eq_arg.
+    exact: (@F_body E e rho (kleisli (eta << Roll) (eta a))). }
+  rewrite -> KURKR_id. rewrite -> KURKR_id. apply: tset_refl.
+Qed.
+
+(* the body of an abstraction at the fresh variable *)
+Lemma F_fresh : forall (E : Env) (e : Term) (rho : SemEnv E) (n : nat),
+    F (@SemT E.+1 e) rho (eta (Roll (inNat n))) =-=
+    kleisli (eta << Roll) (@SemT E.+1 e (rho, eta (inNat n))).
+Proof.
+  move => E e rho n.
+  apply Oeq_trans with
+      (y := kleisli (eta << Roll)
+              (@SemT E.+1 e (rho, kleisli (eta << Unroll) (eta (Roll (inNat n)))))).
+  { exact: (F_body e rho (eta (Roll (inNat n)))). }
+  apply: kleisli_eq_arg. apply: SemT_eq_env. apply: pair_Oeq.
+  - apply: tset_refl.
+  - rewrite -> kleisli_eta. rewrite -> comp_simpl.
+    apply: StreamVal_eq. exact: (Unroll_Roll (inNat n)).
 Qed.
 
 (** *Fundamental theorem (paper Thm 2) [ISSUE-015f] *)
@@ -308,4 +372,117 @@ Theorem Fundamental : forall (Gamma : LCtx) (t : Term) (theta : LType),
       exists d : VInf,
         ⟦ t ⟧ rho =-= eta d /\
         Delta ⊩ subT sigma t ∼ d ⦂ theta.
-Proof. Admitted.
+Proof.
+  move => Gamma t theta H.
+  elim: H => [Gamma0 v Hv | Gamma0 e theta' theta0 He IHe
+              | Gamma0 t1 t2 theta0 theta' H1 IH1 H2 IH2].
+  - (* VarRule *) move => Delta sigma rho Hsub.
+    case: (Hsub v Hv) => d [Hrho Hrel].
+    exists d. split.
+    + rewrite SemT_VAR_equation. exact Hrho.
+    + simpl. exact Hrel.
+  - (* FunRule *) move => Delta sigma rho Hsub.
+    pose f := F (@SemT (length Gamma0).+1 e) rho.
+    exists (inFun f). split.
+    + rewrite SemT_FUN_equation2. reflexivity.
+    + split.
+      * (* reification part *)
+        move => Theta.
+        set L := (length (Theta ++ Delta))%N.
+        have Hsub_w : SubRel (Theta ++ Delta) Gamma0
+                        (fun n => wk (length Theta) (sigma n)) rho.
+        { exact: (@SubRel_weaken Theta Delta Gamma0 sigma rho Hsub). }
+        have Hvar : (theta' × (Theta ++ Delta)) ⊩ VAR 0 ∼ inNat L ⦂ theta'.
+        { have Hvar0 : (theta' × (Theta ++ Delta)) ⊩ VAR 0
+                         ∼ inNat (length (theta' × (Theta ++ Delta)) - 0.+1)
+                         ⦂ theta'.
+          { apply: TermRel_var. rewrite length_cons. by rewrite ltn0Sn. }
+          have Hmark : (length (theta' × (Theta ++ Delta)) - 0.+1) = L.
+          { by rewrite length_cons subn1 /L. }
+          rewrite Hmark in Hvar0. exact Hvar0. }
+        have Hsub_lift : SubRel (theta' × (Theta ++ Delta)) (theta' × Gamma0)
+                           (liftSub (fun n => wk (length Theta) (sigma n)))
+                           (rho, eta (inNat L)).
+        { exact: (@SubRel_lift theta' (Theta ++ Delta) Gamma0
+                    (fun n => wk (length Theta) (sigma n)) rho (inNat L)
+                    Hsub_w Hvar). }
+        case: (IHe (theta' × (Theta ++ Delta))
+                  (liftSub (fun n => wk (length Theta) (sigma n)))
+                  (rho, eta (inNat L)) Hsub_lift) => w [Hw Hrelw].
+        case: (TermRel_reify Hrelw nil) => b [HRb HEb].
+        simpl in HEb. rewrite wk_0 in HEb.
+        simpl in HRb.
+        have Hidxb : (0 + (length (Theta ++ Delta)).+1)%N = L.+1
+          by rewrite /L.
+        rewrite Hidxb in HRb.
+        change (R L.+1 w =-= eta b) in HRb.
+        have Hf : f (eta (Roll (inNat L))) =-= eta (Roll w).
+        { unfold f. rewrite (@F_fresh (length Gamma0) e rho L).
+          rewrite Hw. rewrite kleisli_eta. rewrite comp_simpl. reflexivity. }
+        have HRfun : R L (inFun f) =-= eta (FUN b).
+        { rewrite (@R_FUN L f).
+          rewrite (@FunCase_eval L (R L.+1) f w Hf).
+          rewrite (KLEISLI_etaVal (R L.+1) w). rewrite HRb.
+          rewrite kleisli_eta. rewrite comp_simpl. reflexivity. }
+        exists (FUN b). split.
+        -- have Hidx : (length Theta + length Delta)%N = L
+             by rewrite /L length_app.
+           rewrite Hidx. exact HRfun.
+        -- rewrite wk_subT.
+           change ((Theta ++ Delta) ⊢
+                     FUN (subT (liftSub (fun n => wk (length Theta) (sigma n))) e)
+                     ≡ FUN b ⦂ theta' ⇥ theta0).
+           apply: Eq_xi. exact HEb.
+      * (* applicative part *)
+        move => Theta s a Hsa.
+        have Hsub_w : SubRel (Theta ++ Delta) Gamma0
+                        (fun n => wk (length Theta) (sigma n)) rho.
+        { exact: (@SubRel_weaken Theta Delta Gamma0 sigma rho Hsub). }
+        have Hsub_ext : SubRel (Theta ++ Delta) (theta' × Gamma0)
+                          (consMap s (fun n => wk (length Theta) (sigma n)))
+                          (rho, eta a).
+        { exact: (@SubRel_ext (Theta ++ Delta) Gamma0
+                    (fun n => wk (length Theta) (sigma n)) rho s a theta'
+                    Hsub_w Hsa). }
+        case: (IHe (Theta ++ Delta)
+                  (consMap s (fun n => wk (length Theta) (sigma n)))
+                  (rho, eta a) Hsub_ext) => w [Hw Hrelw].
+        exists w. split.
+        -- unfold f.
+           apply Oeq_trans with (y := @SemT (length Gamma0).+1 e (rho, eta a)).
+           ++ exact: (@AppV_inFun_F (length Gamma0) e rho a).
+           ++ exact Hw.
+        -- rewrite wk_subT.
+           change ((Theta ++ Delta) ⊩
+                     APP (FUN (subT (liftSub (fun n => wk (length Theta) (sigma n))) e)) s
+                     ∼ w ⦂ theta0).
+           have HsubOK : SubOKP (Theta ++ Delta) Gamma0
+                           (fun n => wk (length Theta) (sigma n)).
+           { exact: (SubRel_SubOKP Hsub_w). }
+           case: (TypeJudge_subP He (SubOKP_lift HsubOK)) => [Hbody_ty].
+           case: (TermRel_typed Hsa) => [Hs_ty].
+           have HEbeta : (Theta ++ Delta) ⊢
+                           APP (FUN (subT (liftSub (fun n => wk (length Theta) (sigma n))) e)) s
+                           ≡ subT (consMap s idSub)
+                               (subT (liftSub (fun n => wk (length Theta) (sigma n))) e)
+                           ⦂ theta0.
+           { apply: (@Eq_beta (Theta ++ Delta)
+                       (subT (liftSub (fun n => wk (length Theta) (sigma n))) e)
+                       s theta' theta0 Hbody_ty Hs_ty). }
+           rewrite (subT_lift_single s
+                      (fun n => wk (length Theta) (sigma n)) e) in HEbeta.
+           apply: (TermRel_eq Hrelw). exact: (Eq_sym HEbeta).
+  - (* AppRule *) move => Delta sigma rho Hsub.
+    case: (IH1 Delta sigma rho Hsub) => d1 [Hd1 Hrel1].
+    case: (IH2 Delta sigma rho Hsub) => d2 [Hd2 Hrel2].
+    case: Hrel1 => [_ Hfun].
+    case: (Hfun nil (subT sigma t2) d2 Hrel2) => w [Happ Hrelw].
+    exists w. split.
+    + rewrite SemT_APP_equation.
+      apply Oeq_trans with (y := AppV (d1, @SemT (length Gamma0) t2 rho)).
+      * apply: (AppOp_eval (E:=length Gamma0)
+                  (d1:=@SemT (length Gamma0) t1)
+                  (η:=rho) (k:=d1) (@SemT (length Gamma0) t2) Hd1).
+      * rewrite Hd2. exact Happ.
+    + rewrite wk_0 in Hrelw. simpl. exact Hrelw.
+Qed.
